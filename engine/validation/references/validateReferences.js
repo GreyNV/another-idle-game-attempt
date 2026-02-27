@@ -6,24 +6,7 @@ function isObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * @param {string} ref
- */
-function parseNodeRef(ref) {
-  const parts = ref.split('/');
-  const parsed = {};
-  for (const part of parts) {
-    const [rawKey, rawValue] = part.split(':');
-    if (!rawKey || !rawValue) {
-      return null;
-    }
-    parsed[rawKey] = rawValue;
-  }
-  if (!parsed.layer) {
-    return null;
-  }
-  return parsed;
-}
+const { parseNodeRef } = require('../../systems/unlocks/nodeRef');
 
 /**
  * @param {Record<string, unknown>} rootState
@@ -107,16 +90,18 @@ function buildNodeIndex(layers) {
 }
 
 function validateNodeRefExists(ref, path, index, issues) {
-  const parsed = parseNodeRef(ref);
-  if (!parsed) {
+  const parsedResult = parseNodeRef(ref);
+  if (!parsedResult.ok) {
     issues.push({
       code: 'REF_FORMAT',
       path,
-      message: `Invalid node reference format "${ref}".`,
+      message: `Invalid node reference format "${ref}" (${parsedResult.code}).`,
       hint: 'Use layer:<id>[/sublayer:<id>[/section:<id>[/element:<id>]]].',
     });
     return;
   }
+
+  const parsed = parsedResult.value;
 
   if (!index.layers.has(parsed.layer)) {
     issues.push({
