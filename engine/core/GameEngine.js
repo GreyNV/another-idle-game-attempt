@@ -1,9 +1,15 @@
 const { parseGameDefinition } = require('../validation/parser/parseGameDefinition');
+const { EventBus } = require('../systems/event-bus/EventBus');
+const { IntentRouter } = require('../systems/intent/IntentRouter');
 
 class GameEngine {
-  constructor() {
+  constructor(options = {}) {
+    const devModeStrict = options.devModeStrict !== undefined ? Boolean(options.devModeStrict) : true;
+
     this.definition = null;
     this.initialized = false;
+    this.eventBus = new EventBus({ strictValidation: devModeStrict });
+    this.intentRouter = new IntentRouter({ strictValidation: devModeStrict });
   }
 
   /**
