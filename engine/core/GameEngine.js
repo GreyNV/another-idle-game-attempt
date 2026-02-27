@@ -39,6 +39,7 @@ class GameEngine {
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
+    this.runtimeSubscriptionTokens = [];
     this.layerEventSubscriptionTokens = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
@@ -91,6 +92,11 @@ class GameEngine {
    * Safe to call multiple times.
    */
   destroy() {
+    for (const token of this.runtimeSubscriptionTokens) {
+      this.eventBus.unsubscribe(token);
+    }
+    this.runtimeSubscriptionTokens = [];
+
     for (const token of this.layerEventSubscriptionTokens) {
       this.eventBus.unsubscribe(token);
     }
@@ -225,12 +231,17 @@ class GameEngine {
       return this.layerResetService.preview(intent.payload.layerId);
     });
 
-    this.eventBus.subscribe('LAYER_RESET_REQUESTED', (event) => {
-      this.layerResetService.execute({
-        layerId: event.payload.layerId,
-        reason: event.payload.reason,
-      });
-    }, 'LayerResetService');
+    const token = this.eventBus.subscribe(
+      'LAYER_RESET_REQUESTED',
+      (event) => {
+        this.layerResetService.execute({
+          layerId: event.payload.layerId,
+          reason: event.payload.reason,
+        });
+      },
+      'LayerResetService'
+    );
+    this.runtimeSubscriptionTokens.push(token);
   }
 
   #wireLayerEventSubscriptions() {

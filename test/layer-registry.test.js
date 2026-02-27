@@ -95,11 +95,16 @@ function runLayerEventSubscriptionCase() {
   engine.tick();
   assert.deepStrictEqual(receivedEvents, ['LAYER_RESET_EXECUTED']);
 
+  engine.stateStore.set('resources.xp', 42);
+
   engine.destroy();
   assert.strictEqual(destroyCount, 1);
 
+  engine.eventBus.publish({ type: 'LAYER_RESET_REQUESTED', payload: { layerId: 'idle', reason: 'after-destroy' } });
   engine.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: 'idle' } });
   engine.eventBus.dispatchQueued();
+
+  assert.strictEqual(engine.stateStore.get('resources.xp'), 42, 'destroy should remove runtime reset subscribers');
   assert.deepStrictEqual(receivedEvents, ['LAYER_RESET_EXECUTED']);
 }
 
