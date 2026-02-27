@@ -4,6 +4,8 @@ const assert = require('assert');
 
 const { parseGameDefinition, ValidationError } = require('../engine/validation');
 const { GameEngine } = require('../engine/core/GameEngine');
+const { EventBus } = require('../engine/systems/event-bus/EventBus');
+const { IntentRouter } = require('../engine/systems/intent/IntentRouter');
 
 function loadFixture(name) {
   return JSON.parse(
@@ -30,6 +32,80 @@ function expectInvalid(name, expectedCode, expectedPathPart) {
   assert(first.hint && first.hint.length > 0, `${name} should include remediation hint`);
 }
 
+function runCatalogValidationChecks() {
+  const strictEventBus = new EventBus({ strictValidation: true });
+
+  strictEventBus.publish({
+    type: 'UNLOCKED',
+    phase: 'unlock-evaluation',
+    payload: { targetRef: 'layers.progressLayer.sections.jobs' },
+  });
+
+  assert.throws(() => {
+    strictEventBus.publish({
+      type: 'UNLOCKED',
+      phase: 'render',
+      payload: { targetRef: 'layers.progressLayer.sections.jobs' },
+    });
+  }, /cannot be published during phase/);
+
+  assert.throws(() => {
+    strictEventBus.publish({
+      type: 'LAYER_RESET_EXECUTED',
+      phase: 'event-dispatch',
+      payload: { preservedKeys: ['xp'] },
+    });
+  }, /payload.layerId must be a non-empty string/);
+
+  const received = [];
+  strictEventBus.subscribe('UNLOCKED', (event) => {
+    received.push(event.type);
+  });
+  assert.strictEqual(strictEventBus.dispatchQueued(), 1);
+  assert.deepStrictEqual(received, ['UNLOCKED']);
+
+  const intentRouter = new IntentRouter({
+    strictValidation: true,
+    isNodeLocked(targetRef) {
+      return targetRef === 'layers.progressLayer.sections.jobs';
+    },
+  });
+
+  intentRouter.register('START_JOB', (intent, entry) => ({
+    routed: intent.type,
+    target: entry.routingTarget,
+  }));
+
+  const lockedResult = intentRouter.route({
+    type: 'START_JOB',
+    payload: {
+      targetRef: 'layers.progressLayer.sections.jobs',
+      jobId: 'woodcutting',
+    },
+  });
+  assert.strictEqual(lockedResult.ok, false);
+  assert.strictEqual(lockedResult.code, 'INTENT_TARGET_LOCKED');
+
+  const payloadInvalidResult = intentRouter.route({
+    type: 'STOP_JOB',
+    payload: {
+      targetRef: 'layers.progressLayer.sections.jobs',
+    },
+  });
+  assert.strictEqual(payloadInvalidResult.ok, false);
+  assert.strictEqual(payloadInvalidResult.code, 'INTENT_PAYLOAD_INVALID');
+
+  const routedResult = intentRouter.route({
+    type: 'START_JOB',
+    payload: {
+      targetRef: 'layers.progressLayer.sections.unlocked',
+      jobId: 'woodcutting',
+    },
+  });
+  assert.strictEqual(routedResult.ok, true);
+  assert.strictEqual(routedResult.routingTarget, 'progressLayer');
+}
+
 function run() {
   const valid = loadFixture('valid-definition.json');
   const parsed = parseGameDefinition(valid);
@@ -47,6 +123,8 @@ function run() {
 
   const invalidEngine = new GameEngine();
   assert.throws(() => invalidEngine.initialize(loadFixture('invalid-target-reference.json')), ValidationError);
+
+  runCatalogValidationChecks();
 
   console.log('schema-validation tests passed');
 }
