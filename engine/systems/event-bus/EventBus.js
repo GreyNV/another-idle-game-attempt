@@ -4,6 +4,7 @@ class EventBus {
   constructor(options = {}) {
     this.strictValidation = Boolean(options.strictValidation);
     this.allowedPhase = options.allowedPhase || null;
+    this.maxEventsPerTick = this.#normalizeMaxEventsPerTick(options.maxEventsPerTick);
     this.queue = [];
     this.subscribers = new Map();
     this.nextToken = 1;
@@ -51,24 +52,47 @@ class EventBus {
   }
 
   dispatchQueued() {
-    const dispatchQueue = this.queue;
-    this.queue = [];
-
-    const snapshot = new Map();
-    for (const [eventType, subscribers] of this.subscribers.entries()) {
-      snapshot.set(eventType, subscribers.slice());
-    }
-
     let delivered = 0;
-    for (const event of dispatchQueue) {
-      const handlers = snapshot.get(event.type) || [];
-      for (const subscriber of handlers) {
-        subscriber.handler(event);
-        delivered += 1;
+
+    let processedEvents = 0;
+    while (this.queue.length > 0) {
+      const dispatchQueue = this.queue;
+      this.queue = [];
+
+      const snapshot = new Map();
+      for (const [eventType, subscribers] of this.subscribers.entries()) {
+        snapshot.set(eventType, subscribers.slice());
+      }
+
+      for (const event of dispatchQueue) {
+        processedEvents += 1;
+        if (processedEvents > this.maxEventsPerTick) {
+          throw new Error(
+            `EventBus dispatch exceeded maxEventsPerTick (${this.maxEventsPerTick}). Check for recursive publish loops.`
+          );
+        }
+
+        const handlers = snapshot.get(event.type) || [];
+        for (const subscriber of handlers) {
+          subscriber.handler(event);
+          delivered += 1;
+        }
       }
     }
 
     return delivered;
+  }
+
+  #normalizeMaxEventsPerTick(value) {
+    if (value === undefined || value === null) {
+      return 10000;
+    }
+
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error('maxEventsPerTick must be a positive integer when provided.');
+    }
+
+    return value;
   }
 
   #normalizeEvent(event) {

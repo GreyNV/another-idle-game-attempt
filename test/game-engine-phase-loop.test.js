@@ -78,12 +78,27 @@ function runSameTickDispatchCase() {
   });
 
   const tickOne = engine.tick();
-  assert.strictEqual(tickOne.dispatchedHandlers, 2, 'first tick dispatches request to external + internal reset handlers');
-  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED']);
+  assert.strictEqual(
+    tickOne.dispatchedHandlers,
+    4,
+    'first tick dispatches request handlers, then drains executed events in same tick'
+  );
+  assert.deepStrictEqual(
+    delivered,
+    ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED'],
+    'same-tick dispatch should include events published by handlers'
+  );
 
   const tickTwo = engine.tick();
-  assert.strictEqual(tickTwo.dispatchedHandlers, 4, 'second tick dispatches two queued reset-executed events plus next request snapshot');
-  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_REQUESTED']);
+  assert.strictEqual(tickTwo.dispatchedHandlers, 4, 'second tick repeats same dispatch cycle behavior');
+  assert.deepStrictEqual(delivered, [
+    'LAYER_RESET_REQUESTED',
+    'LAYER_RESET_EXECUTED',
+    'LAYER_RESET_EXECUTED',
+    'LAYER_RESET_REQUESTED',
+    'LAYER_RESET_EXECUTED',
+    'LAYER_RESET_EXECUTED',
+  ]);
 }
 
 function runGuardrailCases() {
@@ -95,6 +110,22 @@ function runGuardrailCases() {
   engine.initialize(validDefinition);
 
   assert.throws(() => engine.tick(), /non-negative number/);
+
+  const loopEngine = new GameEngine({
+    devModeStrict: false,
+    timeSystem: { getDeltaTime: () => 1 },
+    maxEventsPerTick: 3,
+    onLayerUpdate(_layer, context) {
+      context.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: 'idle' } });
+    },
+  });
+
+  loopEngine.initialize(validDefinition);
+  loopEngine.eventBus.subscribe('LAYER_RESET_EXECUTED', () => {
+    loopEngine.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: 'idle' } });
+  });
+
+  assert.throws(() => loopEngine.tick(), /maxEventsPerTick/);
 }
 
 function run() {
