@@ -3,9 +3,9 @@
     "schemaVersion": "1.0",
     "gameId": "idle-invalid-target"
   },
-  "systems": [
-    { "id": "event-bus", "type": "eventBus" }
-  ],
+  "systems": {
+    "tickMs": 100
+  },
   "state": {
     "resources": {
       "xp": 0

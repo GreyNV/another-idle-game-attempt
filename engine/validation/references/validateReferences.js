@@ -7,6 +7,7 @@ function isObject(value) {
 }
 
 const { parseNodeRef } = require('../../systems/unlocks/nodeRef');
+const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition');
 
 /**
  * @param {Record<string, unknown>} rootState
@@ -186,27 +187,35 @@ function validateReferences(definition) {
     }
 
     const validateUnlockPath = (unlock, path) => {
-      if (!isObject(unlock)) {
+      const parsedUnlock = parseUnlockCondition(unlock);
+      if (!parsedUnlock.ok) {
         return;
       }
 
-      if (isObject(unlock.resourceGte) && typeof unlock.resourceGte.path === 'string' && !hasStatePath(rootState, unlock.resourceGte.path)) {
-        issues.push({
-          code: 'REF_UNLOCK_PATH_MISSING',
-          path: `${path}/resourceGte/path`,
-          message: `Unlock path "${unlock.resourceGte.path}" does not exist in state.`,
-          hint: 'Add the state path or update unlock path to an existing canonical state path.',
-        });
-      }
+      const walkAst = (ast, astPath) => {
+        if (ast.type === 'resourceGte' || ast.type === 'compare' || ast.type === 'flag') {
+          if (!hasStatePath(rootState, ast.path)) {
+            issues.push({
+              code: 'REF_UNLOCK_PATH_MISSING',
+              path: `${astPath}/path`,
+              message: `Unlock path "${ast.path}" does not exist in state.`,
+              hint: 'Add the state path or update unlock path to an existing canonical state path.',
+            });
+          }
+          return;
+        }
 
-      if (typeof unlock.pathExists === 'string' && !hasStatePath(rootState, unlock.pathExists)) {
-        issues.push({
-          code: 'REF_UNLOCK_PATH_MISSING',
-          path: `${path}/pathExists`,
-          message: `Unlock path "${unlock.pathExists}" does not exist in state.`,
-          hint: 'Add the state path or update unlock condition path.',
-        });
-      }
+        if (ast.type === 'all' || ast.type === 'any') {
+          ast.children.forEach((child, idx) => walkAst(child, `${astPath}/${idx}`));
+          return;
+        }
+
+        if (ast.type === 'not') {
+          walkAst(ast.child, astPath);
+        }
+      };
+
+      walkAst(parsedUnlock.value, path);
     };
 
     validateUnlockPath(layer.unlock, `/layers/${layerIdx}/unlock`);

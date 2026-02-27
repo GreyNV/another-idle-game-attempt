@@ -112,9 +112,10 @@ function run() {
   assert.strictEqual(parsed.meta.gameId, 'idle-valid');
 
   expectInvalid('invalid-schema-version.json', 'SCHEMA_VERSION_MAJOR_MISMATCH', '/meta/schemaVersion');
-  expectInvalid('invalid-duplicate-ids.json', 'ID_DUPLICATE', '/systems/1/id');
+  expectInvalid('invalid-duplicate-ids.json', 'ID_DUPLICATE', '/layers/0/sublayers/0/sections/0/elements/1/id');
   expectInvalid('invalid-target-reference.json', 'REF_ELEMENT_MISSING', '/effect/targetRef');
-  expectInvalid('invalid-unlock-path.json', 'REF_UNLOCK_PATH_MISSING', '/unlock/resourceGte/path');
+  expectInvalid('invalid-unlock-path.json', 'REF_UNLOCK_PATH_MISSING', '/unlock/path');
+  expectInvalid('invalid-systems-array.json', 'SYSTEMS_SHAPE_MIGRATED', '/systems');
   expectInvalid('invalid-softcap-mode.json', 'SOFTCAP_MODE_ENUM', '/softcaps/0/mode');
 
   const engine = new GameEngine();
