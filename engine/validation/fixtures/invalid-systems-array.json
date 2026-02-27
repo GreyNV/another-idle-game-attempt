@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "idle-invalid-systems-array"
+  },
+  "systems": [
+    { "id": "event-bus", "type": "eventBus" }
+  ],
+  "state": {
+    "resources": {
+      "xp": 0
+    }
+  },
+  "layers": []
+}

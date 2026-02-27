@@ -1,4 +1,5 @@
 const { validateSchemaVersion } = require('./schemaVersionPolicy');
+const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition');
 
 const LAYER_TYPES = new Set(['progressLayer']);
 const SUBLAYER_TYPES = new Set(['progress', 'buyable', 'upgrade']);
@@ -25,23 +26,27 @@ function issue(issues, path, code, message, hint) {
 }
 
 function validateUnlockShape(unlock, path, issues) {
-  if (!isObject(unlock)) {
-    issue(issues, path, 'UNLOCK_TYPE', 'Unlock must be an object.', 'Replace unlock with an object expression.');
+  if (isObject(unlock) && typeof unlock.pathExists === 'string') {
+    issue(
+      issues,
+      `${path}/pathExists`,
+      'UNLOCK_PATH_EXISTS_DEPRECATED',
+      'unlock.pathExists is no longer supported in schema v1.',
+      'Use { "flag": { "path": "..." } } for boolean paths, or compare/resourceGte for numeric checks.'
+    );
     return;
   }
 
-  const keys = Object.keys(unlock);
-  if (keys.length === 0) {
-    issue(issues, path, 'UNLOCK_EMPTY', 'Unlock object cannot be empty.', 'Provide an unlock condition like always/resourceGte/pathExists.');
-    return;
+  const parsed = parseUnlockCondition(unlock);
+  if (!parsed.ok) {
+    issue(
+      issues,
+      path,
+      parsed.code,
+      parsed.message,
+      'Use one unlock operator per object. Supported operators: always, resourceGte, compare, flag, all, any, not.'
+    );
   }
-
-  const supported = ['always', 'resourceGte', 'pathExists'];
-  keys.forEach((key) => {
-    if (!supported.includes(key)) {
-      issue(issues, `${path}/${key}`, 'UNLOCK_KEY_UNKNOWN', `Unknown unlock condition "${key}".`, `Use one of: ${supported.join(', ')}.`);
-    }
-  });
 }
 
 function validateIdsUnique(list, path, issues) {
@@ -86,21 +91,16 @@ function validateGameDefinitionSchema(definition) {
     }
   }
 
-  if (!Array.isArray(systems)) {
-    issue(issues, '/systems', 'SYSTEMS_REQUIRED', 'systems must be an array.', 'Declare systems as an array of system descriptors.');
-  } else {
-    validateIdsUnique(systems, '/systems', issues);
-    systems.forEach((system, index) => {
-      const basePath = `/systems/${index}`;
-      if (!isObject(system)) {
-        issue(issues, basePath, 'SYSTEM_TYPE', 'System entry must be an object.', 'Replace this entry with { id, type } shape.');
-        return;
-      }
-
-      if (typeof system.type !== 'string' || system.type.trim() === '') {
-        issue(issues, `${basePath}/type`, 'SYSTEM_TYPE_REQUIRED', 'System type must be a non-empty string.', 'Set a string type like "eventBus".');
-      }
-    });
+  if (Array.isArray(systems)) {
+    issue(
+      issues,
+      '/systems',
+      'SYSTEMS_SHAPE_MIGRATED',
+      'systems must be an object in schema v1 (array shape is deprecated).',
+      'Migrate to an object map, e.g. { "tickMs": 100 } instead of [{ "id": "time-system", "type": "timeSystem" }].'
+    );
+  } else if (!isObject(systems)) {
+    issue(issues, '/systems', 'SYSTEMS_REQUIRED', 'systems must be an object.', 'Declare systems as an object of engine-level system configuration.');
   }
 
   if (!isObject(state)) {

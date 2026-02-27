@@ -3,10 +3,9 @@
     "schemaVersion": "1.0",
     "gameId": "idle-invalid-duplicate"
   },
-  "systems": [
-    { "id": "event-bus", "type": "eventBus" },
-    { "id": "event-bus", "type": "stateStore" }
-  ],
+  "systems": {
+    "tickMs": 100
+  },
   "state": {
     "resources": {
       "xp": 0
@@ -24,8 +23,14 @@
             {
               "id": "jobs",
               "elements": [
-                { "id": "woodcut", "type": "progressBar" },
-                { "id": "woodcut", "type": "upgrade" }
+                {
+                  "id": "woodcut",
+                  "type": "progressBar"
+                },
+                {
+                  "id": "woodcut",
+                  "type": "upgrade"
+                }
               ]
             }
           ]

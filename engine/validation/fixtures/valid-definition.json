@@ -3,10 +3,9 @@
     "schemaVersion": "1.0",
     "gameId": "idle-valid"
   },
-  "systems": [
-    { "id": "event-bus", "type": "eventBus" },
-    { "id": "state-store", "type": "stateStore" }
-  ],
+  "systems": {
+    "tickMs": 100
+  },
   "state": {
     "resources": {
       "xp": 0,
@@ -20,9 +19,13 @@
     {
       "id": "idle",
       "type": "progressLayer",
-      "unlock": { "always": true },
+      "unlock": {
+        "always": true
+      },
       "reset": {
-        "keep": ["resources.gold"]
+        "keep": [
+          "resources.gold"
+        ]
       },
       "softcaps": [
         {
@@ -38,7 +41,11 @@
         {
           "id": "routines",
           "type": "progress",
-          "unlock": { "pathExists": "flags.introSeen" },
+          "unlock": {
+            "flag": {
+              "path": "flags.introSeen"
+            }
+          },
           "sections": [
             {
               "id": "jobs",
@@ -46,12 +53,19 @@
                 {
                   "id": "woodcut",
                   "type": "progressBar",
-                  "unlock": { "resourceGte": { "path": "resources.xp", "value": 0 } }
+                  "unlock": {
+                    "resourceGte": {
+                      "path": "resources.xp",
+                      "value": 0
+                    }
+                  }
                 },
                 {
                   "id": "woodcut-upgrade",
                   "type": "upgrade",
-                  "unlock": { "always": true },
+                  "unlock": {
+                    "always": true
+                  },
                   "effect": {
                     "targetRef": "layer:idle/sublayer:routines/section:jobs/element:woodcut"
                   }
