@@ -1,5 +1,7 @@
 const { parseGameDefinition } = require('../validation/parser/parseGameDefinition');
 const { createRuntimeSystems } = require('../systems/createRuntimeSystems');
+const { LayerRegistry } = require('../plugins/LayerRegistry');
+const { registerBuiltinLayers } = require('../plugins/layers/registerBuiltinLayers');
 
 const ENGINE_PHASES = Object.freeze({
   INPUT: 'input',
@@ -34,6 +36,8 @@ class GameEngine {
     this.modifierResolver = null;
     this.layerResetService = null;
     this.uiComposer = null;
+    this.layerRegistry = options.layerRegistry || new LayerRegistry();
+    this.layerInstances = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
     this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => ({});
@@ -71,6 +75,9 @@ class GameEngine {
     this.modifierResolver = systems.modifierResolver;
     this.layerResetService = systems.layerResetService;
     this.uiComposer = systems.uiComposer;
+
+    registerBuiltinLayers(this.layerRegistry);
+    this.layerInstances = this.#instantiateLayersFromDefinition();
 
     this.#wireRuntimeSystems();
     this.initialized = true;
@@ -157,8 +164,11 @@ class GameEngine {
     const layers = Array.isArray(this.definition.layers) ? this.definition.layers : [];
     const updatedLayerIds = [];
 
-    for (const layer of layers) {
+    for (let index = 0; index < layers.length; index += 1) {
+      const layer = layers[index];
+      const layerInstance = this.layerInstances[index];
       // Deterministic invariant: process in exact parsed JSON layers[] order (no sorting/reordering).
+      layerInstance.update(dt);
       this.onLayerUpdate(layer, this.#buildPhaseContext({ dt }));
       updatedLayerIds.push(layer.id);
     }
@@ -199,6 +209,56 @@ class GameEngine {
         reason: event.payload.reason,
       });
     }, 'LayerResetService');
+  }
+
+  #instantiateLayersFromDefinition() {
+    const layers = Array.isArray(this.definition.layers) ? this.definition.layers : [];
+
+    return layers.map((layerDefinition) => {
+      const layerContext = this.#buildLayerContext(layerDefinition);
+      const layerInstance = this.layerRegistry.createLayer(layerDefinition, layerContext);
+      layerInstance.init(layerContext);
+      return layerInstance;
+    });
+  }
+
+  #buildLayerContext(layerDefinition) {
+    const layerStatePath = `layers.${layerDefinition.id}`;
+
+    return {
+      layerId: layerDefinition.id,
+      layerType: layerDefinition.type,
+      eventBus: {
+        publish: (event) => this.eventBus.publish(event),
+        subscribe: (eventType, handler, scope) => this.eventBus.subscribe(eventType, handler, scope),
+        unsubscribe: (token) => this.eventBus.unsubscribe(token),
+      },
+      state: {
+        get: (path) => this.stateStore.get(path),
+        getOwn: () => this.stateStore.get(layerStatePath),
+        setOwn: (pathSuffix, value) => this.stateStore.set(this.#buildLayerWritePath(layerStatePath, pathSuffix), value),
+        patchOwn: (pathSuffix, partial) => this.stateStore.patch(this.#buildLayerWritePath(layerStatePath, pathSuffix), partial),
+        snapshot: () => this.stateStore.snapshot(),
+      },
+      modifierResolver: this.modifierResolver,
+      layerResetService: this.layerResetService,
+    };
+  }
+
+  #buildLayerWritePath(layerStatePath, pathSuffix) {
+    if (pathSuffix === undefined || pathSuffix === null || pathSuffix === '') {
+      return layerStatePath;
+    }
+
+    if (typeof pathSuffix !== 'string') {
+      throw new Error('Layer state path suffix must be a string when provided.');
+    }
+
+    if (pathSuffix.startsWith('layers.')) {
+      throw new Error('Cross-layer state write denied: use layer-local path suffixes only.');
+    }
+
+    return `${layerStatePath}.${pathSuffix}`;
   }
 
   #isUnlockedRef(nodeRef, unlockSummary) {
