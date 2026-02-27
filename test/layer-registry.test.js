@@ -70,11 +70,50 @@ function runBuiltinRegistrationCase() {
   assert.strictEqual(layer.id, 'idle');
 }
 
+function runLayerEventSubscriptionCase() {
+  const receivedEvents = [];
+  let destroyCount = 0;
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    timeSystem: { getDeltaTime: () => 5 },
+    onLayerUpdate(_layer, context) {
+      context.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: 'idle' } });
+    },
+  });
+
+  engine.initialize(loadFixture('valid-definition.json'));
+
+  const layer = engine.layerInstances[0];
+  layer.onEvent = (event) => {
+    receivedEvents.push(event.type);
+  };
+  layer.destroy = () => {
+    destroyCount += 1;
+  };
+
+  engine.tick();
+  assert.deepStrictEqual(receivedEvents, ['LAYER_RESET_EXECUTED']);
+
+  engine.stateStore.set('resources.xp', 42);
+
+  engine.destroy();
+  assert.strictEqual(destroyCount, 1);
+
+  engine.eventBus.publish({ type: 'LAYER_RESET_REQUESTED', payload: { layerId: 'idle', reason: 'after-destroy' } });
+  engine.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: 'idle' } });
+  engine.eventBus.dispatchQueued();
+
+  assert.strictEqual(engine.stateStore.get('resources.xp'), 42, 'destroy should remove runtime reset subscribers');
+  assert.deepStrictEqual(receivedEvents, ['LAYER_RESET_EXECUTED']);
+}
+
 function run() {
   runRegistrationGuardrailCase();
   runBaseLayerContractCheckCase();
   runBuiltinRegistrationCase();
   runEngineLayerInstantiationCase();
+  runLayerEventSubscriptionCase();
   console.log('layer-registry tests passed');
 }
 

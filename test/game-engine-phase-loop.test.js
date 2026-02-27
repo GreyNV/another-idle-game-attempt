@@ -80,8 +80,8 @@ function runSameTickDispatchCase() {
   const tickOne = engine.tick();
   assert.strictEqual(
     tickOne.dispatchedHandlers,
-    4,
-    'first tick dispatches request handlers, then drains executed events in same tick'
+    6,
+    'first tick dispatches runtime + layer handlers, then drains executed events in same tick'
   );
   assert.deepStrictEqual(
     delivered,
@@ -90,7 +90,7 @@ function runSameTickDispatchCase() {
   );
 
   const tickTwo = engine.tick();
-  assert.strictEqual(tickTwo.dispatchedHandlers, 4, 'second tick repeats same dispatch cycle behavior');
+  assert.strictEqual(tickTwo.dispatchedHandlers, 6, 'second tick repeats same dispatch cycle behavior');
   assert.deepStrictEqual(delivered, [
     'LAYER_RESET_REQUESTED',
     'LAYER_RESET_EXECUTED',
