@@ -106,6 +106,25 @@ function runCatalogValidationChecks() {
   assert.strictEqual(routedResult.routingTarget, 'progressLayer');
 }
 
+
+function runSoftcapModeAlignmentCheck() {
+  const fixture = loadFixture('invalid-softcap-mode.json');
+  assert.strictEqual(fixture.layers[0].softcaps[0].mode, 'log');
+
+  let caught = null;
+  try {
+    parseGameDefinition(fixture);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'invalid-softcap-mode.json should fail schema validation');
+  const modeIssue = caught.issues.find((issue) => issue.code === 'SOFTCAP_MODE_ENUM');
+  assert(modeIssue, 'Expected SOFTCAP_MODE_ENUM issue');
+  assert.match(modeIssue.message, /power/);
+  assert.doesNotMatch(modeIssue.message, /linear|log/);
+}
+
 function run() {
   const valid = loadFixture('valid-definition.json');
   const parsed = parseGameDefinition(valid);
@@ -117,6 +136,7 @@ function run() {
   expectInvalid('invalid-unlock-path.json', 'REF_UNLOCK_PATH_MISSING', '/unlock/path');
   expectInvalid('invalid-systems-array.json', 'SYSTEMS_SHAPE_MIGRATED', '/systems');
   expectInvalid('invalid-softcap-mode.json', 'SOFTCAP_MODE_ENUM', '/softcaps/0/mode');
+  runSoftcapModeAlignmentCheck();
 
   const engine = new GameEngine();
   engine.initialize(valid);

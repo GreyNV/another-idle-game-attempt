@@ -4,7 +4,7 @@ const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition'
 const LAYER_TYPES = new Set(['progressLayer']);
 const SUBLAYER_TYPES = new Set(['progress', 'buyable', 'upgrade']);
 const ELEMENT_TYPES = new Set(['progressBar', 'buyable', 'upgrade']);
-const SOFTCAP_MODES = new Set(['power', 'log', 'linear']);
+const SOFTCAP_MODES = new Set(['power']);
 
 /**
  * @param {unknown} value
