@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node test/schema-validation.test.js && node test/unlock-utils.test.js"
+    "test": "node test/schema-validation.test.js && node test/unlock-utils.test.js && node test/game-engine-phase-loop.test.js"
   }
 }
