@@ -1,6 +1,5 @@
 const { parseGameDefinition } = require('../validation/parser/parseGameDefinition');
-const { EventBus } = require('../systems/event-bus/EventBus');
-const { IntentRouter } = require('../systems/intent/IntentRouter');
+const { createRuntimeSystems } = require('../systems/createRuntimeSystems');
 
 const ENGINE_PHASES = Object.freeze({
   INPUT: 'input',
@@ -26,13 +25,25 @@ class GameEngine {
 
     this.definition = null;
     this.initialized = false;
-    this.eventBus = new EventBus({ strictValidation: devModeStrict });
-    this.intentRouter = new IntentRouter({ strictValidation: devModeStrict });
+    this.runtimeOptions = options;
+    this.devModeStrict = devModeStrict;
+    this.eventBus = null;
+    this.stateStore = null;
+    this.intentRouter = null;
+    this.timeSystem = null;
+    this.modifierResolver = null;
+    this.layerResetService = null;
+    this.uiComposer = null;
 
-    this.timeSystem = options.timeSystem || { getDeltaTime: () => 0 };
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
     this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => ({});
-    this.onRenderCompose = typeof options.onRenderCompose === 'function' ? options.onRenderCompose : () => null;
+    this.onRenderCompose =
+      typeof options.onRenderCompose === 'function'
+        ? options.onRenderCompose
+        : (context) =>
+            this.uiComposer.compose(context.definition, {
+              isUnlocked: (ref) => this.#isUnlockedRef(ref, context.summary.unlocks),
+            });
 
     this.intentQueue = [];
     this.lastTickSummary = null;
@@ -46,6 +57,22 @@ class GameEngine {
    */
   initialize(rawDefinition) {
     this.definition = parseGameDefinition(rawDefinition);
+
+    const systems = createRuntimeSystems({
+      ...this.runtimeOptions,
+      devModeStrict: this.devModeStrict,
+      definition: this.definition,
+    });
+
+    this.eventBus = systems.eventBus;
+    this.stateStore = systems.stateStore;
+    this.intentRouter = systems.intentRouter;
+    this.timeSystem = systems.timeSystem;
+    this.modifierResolver = systems.modifierResolver;
+    this.layerResetService = systems.layerResetService;
+    this.uiComposer = systems.uiComposer;
+
+    this.#wireRuntimeSystems();
     this.initialized = true;
   }
 
@@ -145,8 +172,49 @@ class GameEngine {
       summary,
       definition: this.definition,
       eventBus: this.eventBus,
+      stateStore: this.stateStore,
+      modifierResolver: this.modifierResolver,
+      layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
     };
+  }
+
+  #wireRuntimeSystems() {
+    this.intentRouter.register('REQUEST_LAYER_RESET', (intent) => {
+      this.eventBus.publish({
+        type: 'LAYER_RESET_REQUESTED',
+        payload: {
+          layerId: intent.payload.layerId,
+          reason: intent.payload.reason,
+          sourceIntent: intent.type,
+        },
+      });
+
+      return this.layerResetService.preview(intent.payload.layerId);
+    });
+
+    this.eventBus.subscribe('LAYER_RESET_REQUESTED', (event) => {
+      this.layerResetService.execute({
+        layerId: event.payload.layerId,
+        reason: event.payload.reason,
+      });
+    }, 'LayerResetService');
+  }
+
+  #isUnlockedRef(nodeRef, unlockSummary) {
+    if (!unlockSummary) {
+      return true;
+    }
+
+    if (Array.isArray(unlockSummary.unlockedRefs)) {
+      return unlockSummary.unlockedRefs.includes(nodeRef);
+    }
+
+    if (unlockSummary.unlocked && typeof unlockSummary.unlocked === 'object') {
+      return Boolean(unlockSummary.unlocked[nodeRef]);
+    }
+
+    return true;
   }
 
   #enterPhase(phase) {

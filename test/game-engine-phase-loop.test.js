@@ -78,12 +78,12 @@ function runSameTickDispatchCase() {
   });
 
   const tickOne = engine.tick();
-  assert.strictEqual(tickOne.dispatchedHandlers, 1, 'first tick dispatches only queue snapshot');
+  assert.strictEqual(tickOne.dispatchedHandlers, 2, 'first tick dispatches request to external + internal reset handlers');
   assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED']);
 
   const tickTwo = engine.tick();
-  assert.strictEqual(tickTwo.dispatchedHandlers, 2, 'second tick dispatches queued + next snapshot event');
-  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_REQUESTED']);
+  assert.strictEqual(tickTwo.dispatchedHandlers, 4, 'second tick dispatches two queued reset-executed events plus next request snapshot');
+  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_REQUESTED']);
 }
 
 function runGuardrailCases() {
