@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "idle-invalid-unlock-path"
+  },
+  "systems": [
+    { "id": "event-bus", "type": "eventBus" }
+  ],
+  "state": {
+    "resources": {
+      "xp": 0
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "sublayers": [
+        {
+          "id": "routines",
+          "type": "progress",
+          "unlock": {
+            "resourceGte": {
+              "path": "resources.gold",
+              "value": 10
+            }
+          },
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

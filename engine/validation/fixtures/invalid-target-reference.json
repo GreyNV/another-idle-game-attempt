@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "idle-invalid-target"
+  },
+  "systems": [
+    { "id": "event-bus", "type": "eventBus" }
+  ],
+  "state": {
+    "resources": {
+      "xp": 0
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "sublayers": [
+        {
+          "id": "routines",
+          "type": "progress",
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": [
+                {
+                  "id": "woodcut-upgrade",
+                  "type": "upgrade",
+                  "effect": {
+                    "targetRef": "layer:idle/sublayer:routines/section:jobs/element:missing"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

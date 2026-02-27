@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "idle-invalid-softcap"
+  },
+  "systems": [
+    { "id": "event-bus", "type": "eventBus" }
+  ],
+  "state": {
+    "resources": {
+      "xp": 0
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "softcaps": [
+        {
+          "id": "cap",
+          "scope": "layer:idle",
+          "key": "gain.gold",
+          "softcapAt": 10,
+          "mode": "curve"
+        }
+      ],
+      "sublayers": [
+        {
+          "id": "routines",
+          "type": "progress",
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
