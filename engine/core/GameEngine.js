@@ -98,9 +98,9 @@ class GameEngine {
    *
    * Same-tick event semantics:
    * 1) Events published during input/time/layer-update are dispatched in this same tick.
-   * 2) EventBus.dispatchQueued() snapshots queue + subscribers at dispatch start.
-   *    Any events published by dispatch handlers are enqueued for the next tick,
-   *    preventing re-entrant same-cycle cascades while preserving FIFO order.
+   * 2) EventBus.dispatchQueued() processes queue FIFO and snapshots subscribers per dispatch cycle.
+   * 3) Events published by handlers during event-dispatch are drained in the same tick, bounded by
+   *    EventBus.maxEventsPerTick guardrails.
    */
   tick() {
     this.#assertInitialized();

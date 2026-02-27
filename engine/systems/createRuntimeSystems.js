@@ -10,7 +10,12 @@ function createRuntimeSystems(options = {}) {
   const strictValidation = options.devModeStrict !== false;
   const definition = options.definition || { state: {}, layers: [] };
 
-  const eventBus = options.eventBus || new EventBus({ strictValidation });
+  const eventBus =
+    options.eventBus ||
+    new EventBus({
+      strictValidation,
+      maxEventsPerTick: options.maxEventsPerTick,
+    });
   const stateStore = options.stateStore || new StateStore(definition.state || {});
   const timeSystem = options.timeSystem || new TimeSystem();
   const modifierResolver = options.modifierResolver || new ModifierResolver({ definition });
