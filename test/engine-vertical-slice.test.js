@@ -1,8 +1,6 @@
 const assert = require('assert');
 
 const { GameEngine } = require('../engine/core/GameEngine');
-const { formatNodeRef } = require('../engine/systems/unlocks/nodeRef');
-const { parseUnlockCondition, evaluateUnlockTransition } = require('../engine/systems/unlocks/unlockCondition');
 
 function buildMinimalDefinition() {
   return {
@@ -58,45 +56,11 @@ function buildMinimalDefinition() {
   };
 }
 
-function collectUnlockTargets(definition) {
-  const targets = [];
-
-  definition.layers.forEach((layer) => {
-    targets.push({
-      ref: formatNodeRef({ layer: layer.id }),
-      unlock: layer.unlock || { always: true },
-    });
-
-    layer.sublayers.forEach((sublayer) => {
-      targets.push({
-        ref: formatNodeRef({ layer: layer.id, sublayer: sublayer.id }),
-        unlock: sublayer.unlock || { always: true },
-      });
-
-      sublayer.sections.forEach((section) => {
-        targets.push({
-          ref: formatNodeRef({ layer: layer.id, sublayer: sublayer.id, section: section.id }),
-          unlock: section.unlock || { always: true },
-        });
-
-        section.elements.forEach((element) => {
-          targets.push({
-            ref: formatNodeRef({ layer: layer.id, sublayer: sublayer.id, section: section.id, element: element.id }),
-            unlock: element.unlock || { always: true },
-          });
-        });
-      });
-    });
-  });
-
-  return targets;
-}
-
 function runVerticalSliceCase() {
   const definition = buildMinimalDefinition();
-  const unlockTargets = collectUnlockTargets(definition);
-  const previousUnlocked = new Map(unlockTargets.map((target) => [target.ref, false]));
   const dispatchTrace = [];
+  const unlockedEvents = [];
+  const xpGatedRef = 'layer:idle/sublayer:main/section:jobs/element:xp-gated';
 
   const engine = new GameEngine({
     devModeStrict: false,
@@ -104,67 +68,49 @@ function runVerticalSliceCase() {
     onLayerUpdate(_layer, context) {
       context.eventBus.publish({ type: 'VERTICAL_SLICE_LAYER_UPDATED', payload: { layerId: 'idle' } });
     },
-    onUnlockEvaluation(context) {
-      const state = context.stateStore.snapshot().canonical;
-      const unlockedRefs = [];
-      const transitions = [];
-
-      unlockTargets.forEach((target) => {
-        const parsed = parseUnlockCondition(target.unlock);
-        assert.strictEqual(parsed.ok, true, `unlock for ${target.ref} should parse`);
-
-        const result = evaluateUnlockTransition({
-          wasUnlocked: previousUnlocked.get(target.ref),
-          ast: parsed.value,
-          state,
-          phase: 'end-of-tick',
-        });
-
-        previousUnlocked.set(target.ref, result.unlocked);
-
-        if (result.unlocked) {
-          unlockedRefs.push(target.ref);
-        }
-
-        if (result.transitioned) {
-          transitions.push(target.ref);
-        }
-      });
-
-      return {
-        unlockedRefs,
-        transitions,
-      };
-    },
   });
 
   engine.initialize(definition);
   engine.eventBus.subscribe('VERTICAL_SLICE_LAYER_UPDATED', (event) => {
     dispatchTrace.push(event.payload.layerId);
   });
+  engine.eventBus.subscribe('UNLOCKED', (event) => {
+    unlockedEvents.push(event.payload.targetRef);
+  });
 
-  const summary = engine.tick();
+  const tickOne = engine.tick();
 
-  assert.strictEqual(summary.dispatchedHandlers, 1, 'event queue should dispatch exactly one subscribed handler');
+  assert.strictEqual(tickOne.dispatchedHandlers, 1, 'event queue should dispatch exactly one subscribed handler');
   assert.deepStrictEqual(dispatchTrace, ['idle'], 'layer update event should be dispatched in the event-dispatch phase');
 
-  assert.ok(
-    summary.unlocks.transitions.includes('layer:idle'),
-    'layer should transition from locked->unlocked during unlock evaluation'
-  );
   assert.strictEqual(
-    summary.unlocks.unlockedRefs.includes('layer:idle/sublayer:main/section:jobs/element:xp-gated'),
+    tickOne.unlocks.transitions.includes(xpGatedRef),
     false,
-    'xp-gated node should remain locked at xp=0'
+    'xp-gated element should remain locked at xp=0'
   );
 
-  const uiElements = summary.ui.layers[0].sublayers[0].sections[0].elements;
+  const tickOneElements = tickOne.ui.layers[0].sublayers[0].sections[0].elements;
   assert.deepStrictEqual(
-    uiElements.map((element) => element.id),
+    tickOneElements.map((element) => element.id),
     ['always-on'],
-    'UI should include only unlocked nodes'
+    'UI should hide xp-gated element while locked'
   );
+
+  engine.stateStore.set('resources.xp', 1);
+  const tickTwo = engine.tick();
+
+  assert.ok(tickTwo.unlocks.transitions.includes(xpGatedRef), 'xp-gated element should transition to unlocked at xp=1');
+  const tickTwoElements = tickTwo.ui.layers[0].sublayers[0].sections[0].elements;
+  assert.deepStrictEqual(
+    tickTwoElements.map((element) => element.id),
+    ['always-on', 'xp-gated'],
+    'UI should include xp-gated element after unlock transition'
+  );
+  const tickThree = engine.tick();
+  assert.ok(tickThree.dispatchedHandlers >= 1, 'third tick should drain queued UNLOCKED events');
+  assert.ok(unlockedEvents.includes(xpGatedRef), 'UNLOCKED event should emit for xp-gated transition');
 }
+
 
 function run() {
   runVerticalSliceCase();

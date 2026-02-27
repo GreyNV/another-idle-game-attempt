@@ -4,6 +4,7 @@ const { StateStore } = require('./state-store/StateStore');
 const { TimeSystem } = require('./time/TimeSystem');
 const { ModifierResolver } = require('./modifiers/ModifierResolver');
 const { LayerResetService } = require('./reset/LayerResetService');
+const { UnlockEvaluator } = require('./unlocks/UnlockEvaluator');
 const { UIComposer } = require('../ui/UIComposer');
 
 function createRuntimeSystems(options = {}) {
@@ -36,6 +37,14 @@ function createRuntimeSystems(options = {}) {
       eventBus,
     });
 
+  const unlockEvaluator =
+    options.unlockEvaluator ||
+    new UnlockEvaluator({
+      definition,
+      stateStore,
+      eventBus,
+    });
+
   return {
     eventBus,
     stateStore,
@@ -43,6 +52,7 @@ function createRuntimeSystems(options = {}) {
     modifierResolver,
     intentRouter,
     layerResetService,
+    unlockEvaluator,
     uiComposer,
   };
 }

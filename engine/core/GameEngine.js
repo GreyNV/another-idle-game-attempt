@@ -36,6 +36,7 @@ class GameEngine {
     this.timeSystem = null;
     this.modifierResolver = null;
     this.layerResetService = null;
+    this.unlockEvaluator = null;
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
@@ -43,7 +44,10 @@ class GameEngine {
     this.layerEventSubscriptionTokens = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
-    this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => ({});
+    this.onUnlockEvaluation =
+      typeof options.onUnlockEvaluation === 'function'
+        ? options.onUnlockEvaluation
+        : () => this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
     this.onRenderCompose =
       typeof options.onRenderCompose === 'function'
         ? options.onRenderCompose
@@ -77,6 +81,7 @@ class GameEngine {
     this.timeSystem = systems.timeSystem;
     this.modifierResolver = systems.modifierResolver;
     this.layerResetService = systems.layerResetService;
+    this.unlockEvaluator = systems.unlockEvaluator;
     this.uiComposer = systems.uiComposer;
 
     registerBuiltinLayers(this.layerRegistry);
