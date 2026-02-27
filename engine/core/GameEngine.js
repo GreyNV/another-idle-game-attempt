@@ -2,6 +2,7 @@ const { parseGameDefinition } = require('../validation/parser/parseGameDefinitio
 const { createRuntimeSystems } = require('../systems/createRuntimeSystems');
 const { LayerRegistry } = require('../plugins/LayerRegistry');
 const { registerBuiltinLayers } = require('../plugins/layers/registerBuiltinLayers');
+const { EVENT_CATALOG } = require('../systems/catalogs/eventCatalog');
 
 const ENGINE_PHASES = Object.freeze({
   INPUT: 'input',
@@ -38,6 +39,7 @@ class GameEngine {
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
+    this.layerEventSubscriptionTokens = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
     this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => ({});
@@ -80,7 +82,27 @@ class GameEngine {
     this.layerInstances = this.#instantiateLayersFromDefinition();
 
     this.#wireRuntimeSystems();
+    this.#wireLayerEventSubscriptions();
     this.initialized = true;
+  }
+
+  /**
+   * Tear down runtime subscriptions and layer instances.
+   * Safe to call multiple times.
+   */
+  destroy() {
+    for (const token of this.layerEventSubscriptionTokens) {
+      this.eventBus.unsubscribe(token);
+    }
+    this.layerEventSubscriptionTokens = [];
+
+    for (const layerInstance of this.layerInstances) {
+      layerInstance.destroy();
+    }
+    this.layerInstances = [];
+
+    this.initialized = false;
+    this.definition = null;
   }
 
   /**
@@ -209,6 +231,29 @@ class GameEngine {
         reason: event.payload.reason,
       });
     }, 'LayerResetService');
+  }
+
+  #wireLayerEventSubscriptions() {
+    const eventTypes = Object.entries(EVENT_CATALOG)
+      .filter(([, catalogEntry]) => Array.isArray(catalogEntry.consumers))
+      .map(([eventType, catalogEntry]) => ({ eventType, consumers: catalogEntry.consumers }));
+
+    for (const layerInstance of this.layerInstances) {
+      for (const { eventType, consumers } of eventTypes) {
+        if (!consumers.includes(layerInstance.type)) {
+          continue;
+        }
+
+        const token = this.eventBus.subscribe(
+          eventType,
+          (event) => {
+            layerInstance.onEvent(event);
+          },
+          `Layer:${layerInstance.id}`
+        );
+        this.layerEventSubscriptionTokens.push(token);
+      }
+    }
   }
 
   #instantiateLayersFromDefinition() {
