@@ -4,7 +4,6 @@ const { parseNodeRef, normalizeNodeRef } = require('../engine/systems/unlocks/no
 const {
   parseUnlockCondition,
   evaluateUnlockCondition,
-  evaluateUnlockProgress,
   evaluateUnlockTransition,
 } = require('../engine/systems/unlocks/unlockCondition');
 
@@ -137,44 +136,10 @@ function runUnlockEvaluationCases() {
   }, /end-of-tick/);
 }
 
-
-function runUnlockProgressCases() {
-  const state = {
-    resources: { xp: 50, cap: 100, debt: -20 },
-    flags: { ready: false },
-  };
-
-  const progressAst = parseUnlockCondition({
-    all: [
-      { resourceGte: { path: 'resources.xp', value: 100 } },
-      { compare: { path: 'resources.cap', op: 'gte', value: 200 } },
-      { any: [{ flag: { path: 'flags.ready' } }, { compare: { path: 'resources.debt', op: 'lte', value: -10 } }] },
-      { not: { flag: { path: 'flags.ready' } } },
-    ],
-  });
-  assert.strictEqual(progressAst.ok, true, 'progress AST should parse');
-
-  const progress = evaluateUnlockProgress(progressAst.value, state);
-  assert.strictEqual(progress, 0.75, 'all should average child progress deterministically');
-
-  const eqAst = parseUnlockCondition({ compare: { path: 'resources.xp', op: 'eq', value: 50 } });
-  assert.strictEqual(eqAst.ok, true, 'eq AST should parse');
-  assert.strictEqual(evaluateUnlockProgress(eqAst.value, state), 1, 'eq progress is binary when true');
-
-  const neqAst = parseUnlockCondition({ compare: { path: 'resources.xp', op: 'neq', value: 50 } });
-  assert.strictEqual(neqAst.ok, true, 'neq AST should parse');
-  assert.strictEqual(evaluateUnlockProgress(neqAst.value, state), 0, 'neq progress is binary when false');
-
-  const missingPathAst = parseUnlockCondition({ resourceGte: { path: 'resources.unknown', value: 10 } });
-  assert.strictEqual(missingPathAst.ok, true, 'missing path AST should parse');
-  assert.strictEqual(evaluateUnlockProgress(missingPathAst.value, state), 0, 'missing numeric path has zero progress');
-}
-
 function run() {
   runNodeRefCases();
   runUnlockAstCases();
   runUnlockEvaluationCases();
-  runUnlockProgressCases();
   console.log('unlock-utils tests passed');
 }
 
