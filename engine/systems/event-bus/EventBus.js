@@ -5,9 +5,17 @@ class EventBus {
     this.strictValidation = Boolean(options.strictValidation);
     this.allowedPhase = options.allowedPhase || null;
     this.maxEventsPerTick = this.#normalizeMaxEventsPerTick(options.maxEventsPerTick);
+    this.maxDispatchCyclesPerTick = this.#normalizeMaxDispatchCyclesPerTick(options.maxDispatchCyclesPerTick);
     this.queue = [];
     this.subscribers = new Map();
     this.nextToken = 1;
+    this.lastDispatchReport = {
+      cyclesProcessed: 0,
+      eventsProcessed: 0,
+      deliveredHandlers: 0,
+      deferredEvents: 0,
+      deferredDueToCycleLimit: false,
+    };
   }
 
   publish(event) {
@@ -17,6 +25,9 @@ class EventBus {
       this.#validateAgainstCatalog(normalized);
     }
 
+    // Queue-only publish invariant:
+    // publish() never invokes subscribers directly and never mutates dispatch order.
+    // Every event is appended and delivered by a later dispatchQueued() cycle.
     this.queue.push(normalized);
   }
 
@@ -55,7 +66,14 @@ class EventBus {
     let delivered = 0;
 
     let processedEvents = 0;
-    while (this.queue.length > 0) {
+    let cyclesProcessed = 0;
+
+    while (this.queue.length > 0 && cyclesProcessed < this.maxDispatchCyclesPerTick) {
+      cyclesProcessed += 1;
+
+      // FIFO invariant:
+      // - dispatchQueue preserves original publish order
+      // - publishes during handler execution are queued for the next cycle
       const dispatchQueue = this.queue;
       this.queue = [];
 
@@ -80,7 +98,21 @@ class EventBus {
       }
     }
 
+    const deferredEvents = this.queue.length;
+    const deferredDueToCycleLimit = deferredEvents > 0;
+    this.lastDispatchReport = {
+      cyclesProcessed,
+      eventsProcessed: processedEvents,
+      deliveredHandlers: delivered,
+      deferredEvents,
+      deferredDueToCycleLimit,
+    };
+
     return delivered;
+  }
+
+  getLastDispatchReport() {
+    return { ...this.lastDispatchReport };
   }
 
   #normalizeMaxEventsPerTick(value) {
@@ -90,6 +122,18 @@ class EventBus {
 
     if (!Number.isInteger(value) || value <= 0) {
       throw new Error('maxEventsPerTick must be a positive integer when provided.');
+    }
+
+    return value;
+  }
+
+  #normalizeMaxDispatchCyclesPerTick(value) {
+    if (value === undefined || value === null) {
+      return 1000;
+    }
+
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error('maxDispatchCyclesPerTick must be a positive integer when provided.');
     }
 
     return value;

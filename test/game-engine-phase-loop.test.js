@@ -84,6 +84,17 @@ function runSameTickDispatchCase() {
     'first tick dispatches runtime + layer handlers, then drains executed events in same tick'
   );
   assert.deepStrictEqual(
+    tickOne.dispatch,
+    {
+      cyclesProcessed: 2,
+      eventsProcessed: 3,
+      deliveredHandlers: 6,
+      deferredEvents: 0,
+      deferredDueToCycleLimit: false,
+    },
+    'first tick dispatch metadata should report two cycles (requested -> executed)'
+  );
+  assert.deepStrictEqual(
     delivered,
     ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED'],
     'same-tick dispatch should include events published by handlers'
@@ -103,6 +114,79 @@ function runSameTickDispatchCase() {
     'LAYER_RESET_EXECUTED',
     'LAYER_RESET_EXECUTED',
   ]);
+}
+
+function runQueueOnlyFifoAndSnapshotCase() {
+  const busModulePath = path.join(__dirname, '..', 'engine', 'systems', 'event-bus', 'EventBus');
+  const { EventBus } = require(busModulePath);
+  const bus = new EventBus({ strictValidation: false });
+
+  const trace = [];
+  bus.subscribe('PING', (event) => {
+    trace.push(`a:${event.payload.id}`);
+
+    if (event.payload.id === 1) {
+      bus.subscribe('PING', (lateEvent) => {
+        trace.push(`late:${lateEvent.payload.id}`);
+      });
+      bus.publish({ type: 'PING', payload: { id: 3 } });
+    }
+  });
+  bus.subscribe('PING', (event) => {
+    trace.push(`b:${event.payload.id}`);
+  });
+
+  bus.publish({ type: 'PING', payload: { id: 1 } });
+  bus.publish({ type: 'PING', payload: { id: 2 } });
+  assert.deepStrictEqual(trace, [], 'publish must be queue-only and never dispatch synchronously');
+
+  const deliveredHandlers = bus.dispatchQueued();
+  assert.strictEqual(deliveredHandlers, 7, 'handlers should be called across multiple FIFO dispatch cycles');
+  assert.deepStrictEqual(trace, ['a:1', 'b:1', 'a:2', 'b:2', 'a:3', 'b:3', 'late:3']);
+  assert.deepStrictEqual(
+    bus.getLastDispatchReport(),
+    {
+      cyclesProcessed: 2,
+      eventsProcessed: 3,
+      deliveredHandlers: 7,
+      deferredEvents: 0,
+      deferredDueToCycleLimit: false,
+    },
+    'snapshot semantics should exclude late subscriber from current cycle and include it next cycle'
+  );
+}
+
+function runDispatchCycleDeferralGuardrailCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  const delivered = [];
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    timeSystem: { getDeltaTime: () => 1 },
+    maxDispatchCyclesPerTick: 1,
+    onLayerUpdate(_layer, context) {
+      context.eventBus.publish({ type: 'LAYER_RESET_REQUESTED', payload: { layerId: 'idle' } });
+    },
+  });
+
+  engine.initialize(validDefinition);
+  engine.eventBus.subscribe('LAYER_RESET_REQUESTED', (event) => {
+    delivered.push(event.type);
+    engine.eventBus.publish({ type: 'LAYER_RESET_EXECUTED', payload: { layerId: event.payload.layerId } });
+  });
+  engine.eventBus.subscribe('LAYER_RESET_EXECUTED', (event) => {
+    delivered.push(event.type);
+  });
+
+  const tickOne = engine.tick();
+  assert.ok(tickOne.dispatch.deferredEvents >= 1, 'guardrail should defer same-phase cascades after cycle limit');
+  assert.strictEqual(tickOne.dispatch.deferredDueToCycleLimit, true);
+  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED']);
+
+  const tickTwo = engine.tick();
+  assert.strictEqual(tickTwo.dispatch.cyclesProcessed, 1);
+  assert.ok(tickTwo.dispatch.eventsProcessed >= 1, 'next tick should resume deferred queue processing deterministically');
+  assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_REQUESTED']);
 }
 
 function runGuardrailCases() {
@@ -136,6 +220,8 @@ function run() {
   runPhaseOrderAndLayerOrderCase();
   runSameTickDispatchCase();
   runGuardrailCases();
+  runQueueOnlyFifoAndSnapshotCase();
+  runDispatchCycleDeferralGuardrailCase();
   console.log('game-engine-phase-loop tests passed');
 }
 

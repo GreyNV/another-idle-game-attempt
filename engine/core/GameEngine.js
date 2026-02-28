@@ -132,8 +132,11 @@ class GameEngine {
    * Same-tick event semantics:
    * 1) Events published during input/time/layer-update are dispatched in this same tick.
    * 2) EventBus.dispatchQueued() processes queue FIFO and snapshots subscribers per dispatch cycle.
-   * 3) Events published by handlers during event-dispatch are drained in the same tick, bounded by
-   *    EventBus.maxEventsPerTick guardrails.
+   * 3) Events published by handlers during event-dispatch are queued for the next dispatch cycle in
+   *    the same tick. Dispatch cycles are FIFO and subscriber-snapshot based.
+   * 4) Guardrails:
+   *    - maxEventsPerTick throws on runaway recursive publishes.
+   *    - maxDispatchCyclesPerTick defers remaining queued events to the next tick.
    */
   tick() {
     this.#assertInitialized();
@@ -144,6 +147,7 @@ class GameEngine {
       dt: 0,
       updatedLayers: [],
       dispatchedHandlers: 0,
+      dispatch: null,
       unlocks: null,
       ui: null,
     };
@@ -159,6 +163,7 @@ class GameEngine {
 
     this.#enterPhase(ENGINE_PHASES.EVENT_DISPATCH);
     summary.dispatchedHandlers = this.eventBus.dispatchQueued();
+    summary.dispatch = this.eventBus.getLastDispatchReport();
 
     this.#enterPhase(ENGINE_PHASES.UNLOCK_EVALUATION);
     summary.unlocks = this.onUnlockEvaluation(this.#buildPhaseContext(summary));

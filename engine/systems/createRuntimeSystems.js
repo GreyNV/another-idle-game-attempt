@@ -16,6 +16,7 @@ function createRuntimeSystems(options = {}) {
     new EventBus({
       strictValidation,
       maxEventsPerTick: options.maxEventsPerTick,
+      maxDispatchCyclesPerTick: options.maxDispatchCyclesPerTick,
     });
   const stateStore = options.stateStore || new StateStore(definition.state || {});
   const timeSystem = options.timeSystem || new TimeSystem();

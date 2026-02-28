@@ -60,3 +60,17 @@ All seeded gameplay intents currently use `reject-if-target-locked`.
 3. Specify real producers/consumers (or routing target) explicitly.
 4. Add/adjust phase constraints for events.
 5. Register runtime handlers only after catalog entry exists.
+
+## Event dispatch semantics for plugin authors
+
+`EventBus` behavior is intentionally explicit and deterministic:
+
+- **Queue-only publish:** `eventBus.publish(event)` only appends to the queue. No handler runs synchronously inside `publish`.
+- **FIFO dispatch:** `dispatchQueued()` drains events in the order they were published within each cycle.
+- **Subscriber snapshot semantics:** each dispatch cycle snapshots subscribers per event type; subscribe/unsubscribe changes made while handling events are applied on the **next** cycle.
+- **Events emitted during dispatch:** if a handler publishes a new event, that event is queued for the next dispatch cycle in the same tick.
+- **Guardrails:**
+  - `maxEventsPerTick` throws when a tick processes too many events (recursive publish loop protection).
+  - `maxDispatchCyclesPerTick` limits same-tick dispatch cycles; any remaining queued events are deferred to the next tick.
+
+Plugin recommendation: avoid unbounded re-publish loops and design handlers to converge in a bounded number of cycles.
