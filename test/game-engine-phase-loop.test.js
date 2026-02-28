@@ -26,7 +26,6 @@ function runPhaseOrderAndLayerOrderCase() {
     },
     onUnlockEvaluation(context) {
       phaseTrace.push(`unlock:${context.phase}`);
-      return { changed: [] };
     },
     onRenderCompose(context) {
       phaseTrace.push(`render:${context.phase}`);
@@ -54,6 +53,35 @@ function runPhaseOrderAndLayerOrderCase() {
     'unlock-evaluation',
     'render',
   ]);
+}
+
+function runUnlockEvaluatorDefaultCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  let evaluateCalls = 0;
+  const unlockEvaluator = {
+    evaluateAll(options) {
+      evaluateCalls += 1;
+      assert.deepStrictEqual(options, { phase: 'end-of-tick' });
+      return {
+        unlockedRefs: ['layer:idle'],
+        unlocked: { 'layer:idle': true },
+        transitions: ['layer:idle'],
+      };
+    },
+  };
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    unlockEvaluator,
+    timeSystem: { getDeltaTime: () => 1 },
+  });
+
+  engine.initialize(validDefinition);
+  const summary = engine.tick();
+
+  assert.strictEqual(evaluateCalls, 1, 'tick should always use unlockEvaluator by default in unlock phase');
+  assert.deepStrictEqual(summary.unlocks.transitions, ['layer:idle']);
+  assert.deepStrictEqual(engine.stateStore.get('derived.unlocks').transitions, ['layer:idle']);
 }
 
 function runSameTickDispatchCase() {
@@ -218,6 +246,7 @@ function runGuardrailCases() {
 
 function run() {
   runPhaseOrderAndLayerOrderCase();
+  runUnlockEvaluatorDefaultCase();
   runSameTickDispatchCase();
   runGuardrailCases();
   runQueueOnlyFifoAndSnapshotCase();

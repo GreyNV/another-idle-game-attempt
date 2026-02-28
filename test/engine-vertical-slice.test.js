@@ -50,6 +50,39 @@ function buildMinimalDefinition() {
               },
             ],
           },
+          {
+            id: 'gated-sub',
+            type: 'progress',
+            unlock: {
+              resourceGte: {
+                path: 'resources.xp',
+                value: 2,
+              },
+            },
+            sections: [
+              {
+                id: 'gated-section',
+                unlock: {
+                  resourceGte: {
+                    path: 'resources.xp',
+                    value: 3,
+                  },
+                },
+                elements: [
+                  {
+                    id: 'gated-element',
+                    type: 'upgrade',
+                    unlock: {
+                      resourceGte: {
+                        path: 'resources.xp',
+                        value: 4,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],
@@ -61,6 +94,9 @@ function runVerticalSliceCase() {
   const dispatchTrace = [];
   const unlockedEvents = [];
   const xpGatedRef = 'layer:idle/sublayer:main/section:jobs/element:xp-gated';
+  const gatedSublayerRef = 'layer:idle/sublayer:gated-sub';
+  const gatedSectionRef = 'layer:idle/sublayer:gated-sub/section:gated-section';
+  const gatedElementRef = 'layer:idle/sublayer:gated-sub/section:gated-section/element:gated-element';
 
   const engine = new GameEngine({
     devModeStrict: false,
@@ -95,6 +131,12 @@ function runVerticalSliceCase() {
     ['always-on'],
     'UI should hide xp-gated element while locked'
   );
+  const tickOneSublayers = tickOne.ui.layers[0].sublayers;
+  assert.strictEqual(
+    tickOneSublayers.some((sublayer) => sublayer.id === 'gated-sub'),
+    false,
+    'UI should hide locked sublayer before unlock conditions are met'
+  );
 
   engine.stateStore.set('resources.xp', 1);
   const tickTwo = engine.tick();
@@ -106,8 +148,47 @@ function runVerticalSliceCase() {
     ['always-on', 'xp-gated'],
     'UI should include xp-gated element after unlock transition'
   );
+
+  engine.stateStore.set('resources.xp', 2);
   const tickThree = engine.tick();
-  assert.ok(tickThree.dispatchedHandlers >= 1, 'third tick should drain queued UNLOCKED events');
+  const tickThreeSublayer = tickThree.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  assert.ok(tickThree.unlocks.transitions.includes(gatedSublayerRef), 'locked sublayer should transition when xp reaches 2');
+  assert.ok(tickThreeSublayer, 'UI should include sublayer after sublayer unlock condition is met');
+  assert.deepStrictEqual(tickThreeSublayer.sections, [], 'section remains hidden until its own unlock condition is met');
+
+  engine.stateStore.set('resources.xp', 3);
+  const tickFour = engine.tick();
+  const tickFourSublayer = tickFour.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  assert.ok(tickFour.unlocks.transitions.includes(gatedSectionRef), 'locked section should transition when xp reaches 3');
+  assert.strictEqual(tickFourSublayer.sections[0].id, 'gated-section');
+  assert.deepStrictEqual(
+    tickFourSublayer.sections[0].elements,
+    [],
+    'element remains hidden until element unlock condition is met'
+  );
+
+  engine.stateStore.set('resources.xp', 4);
+  const tickFive = engine.tick();
+  const tickFiveSublayer = tickFive.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  assert.ok(tickFive.unlocks.transitions.includes(gatedElementRef), 'locked element should transition when xp reaches 4');
+  assert.deepStrictEqual(
+    tickFiveSublayer.sections[0].elements.map((element) => element.id),
+    ['gated-element'],
+    'UI should include gated element only after unlock condition is met'
+  );
+
+  engine.stateStore.set('resources.xp', 0);
+  const tickSix = engine.tick();
+  const tickSixSublayer = tickSix.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  assert.ok(tickSixSublayer, 'sublayer unlock should persist one-way when condition drops back below threshold');
+  assert.strictEqual(tickSixSublayer.sections[0].id, 'gated-section');
+  assert.deepStrictEqual(
+    tickSixSublayer.sections[0].elements.map((element) => element.id),
+    ['gated-element'],
+    'element unlock should persist one-way when condition drops back below threshold'
+  );
+  const tickSeven = engine.tick();
+  assert.ok(tickSeven.dispatchedHandlers >= 1, 'later tick should drain queued UNLOCKED events');
   assert.ok(unlockedEvents.includes(xpGatedRef), 'UNLOCKED event should emit for xp-gated transition');
 }
 

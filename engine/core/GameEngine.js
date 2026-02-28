@@ -44,17 +44,11 @@ class GameEngine {
     this.layerEventSubscriptionTokens = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
-    this.onUnlockEvaluation =
-      typeof options.onUnlockEvaluation === 'function'
-        ? options.onUnlockEvaluation
-        : () => this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
+    this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => {};
     this.onRenderCompose =
       typeof options.onRenderCompose === 'function'
         ? options.onRenderCompose
-        : (context) =>
-            this.uiComposer.compose(context.definition, {
-              isUnlocked: (ref) => this.#isUnlockedRef(ref, context.summary.unlocks),
-            });
+        : (context) => this.uiComposer.compose(context.definition, { unlockState: context.summary.unlocks });
 
     this.intentQueue = [];
     this.lastTickSummary = null;
@@ -166,7 +160,7 @@ class GameEngine {
     summary.dispatch = this.eventBus.getLastDispatchReport();
 
     this.#enterPhase(ENGINE_PHASES.UNLOCK_EVALUATION);
-    summary.unlocks = this.onUnlockEvaluation(this.#buildPhaseContext(summary));
+    summary.unlocks = this.#runUnlockEvaluationPhase(summary);
 
     this.#enterPhase(ENGINE_PHASES.RENDER);
     summary.ui = this.onRenderCompose(this.#buildPhaseContext(summary));
@@ -225,6 +219,13 @@ class GameEngine {
       layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
     };
+  }
+
+  #runUnlockEvaluationPhase(summary) {
+    const unlockSummary = this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
+    this.stateStore.setDerived('unlocks', unlockSummary);
+    this.onUnlockEvaluation(this.#buildPhaseContext({ ...summary, unlocks: unlockSummary }), unlockSummary);
+    return unlockSummary;
   }
 
   #wireRuntimeSystems() {
@@ -325,22 +326,6 @@ class GameEngine {
     }
 
     return `${layerStatePath}.${pathSuffix}`;
-  }
-
-  #isUnlockedRef(nodeRef, unlockSummary) {
-    if (!unlockSummary) {
-      return true;
-    }
-
-    if (Array.isArray(unlockSummary.unlockedRefs)) {
-      return unlockSummary.unlockedRefs.includes(nodeRef);
-    }
-
-    if (unlockSummary.unlocked && typeof unlockSummary.unlocked === 'object') {
-      return Boolean(unlockSummary.unlocked[nodeRef]);
-    }
-
-    return true;
   }
 
   #enterPhase(phase) {
