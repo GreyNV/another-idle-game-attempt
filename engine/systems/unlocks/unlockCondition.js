@@ -25,62 +25,6 @@ function readPath(root, dottedPath) {
 const COMPARISON_OPS = new Set(['gt', 'gte', 'lt', 'lte', 'eq', 'neq']);
 
 /**
- * @param {number} value
- * @returns {number}
- */
-function clampProgress(value) {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
-}
-
-/**
- * Stable progress approximation for threshold operators.
- *
- * For `gte`/`gt` this reports how close `current` is to `target` from below.
- * For `lte`/`lt` this reports how close `current` is to `target` from above.
- *
- * @param {{ current: number, target: number, direction: 'at-least' | 'at-most' }} input
- * @returns {number}
- */
-function estimateThresholdProgress(input) {
-  const { current, target, direction } = input;
-
-  if (direction === 'at-least') {
-    if (current >= target) {
-      return 1;
-    }
-
-    if (target === 0) {
-      return 0;
-    }
-
-    if (target > 0) {
-      return clampProgress(current / target);
-    }
-
-    return clampProgress(target / current);
-  }
-
-  if (current <= target) {
-    return 1;
-  }
-
-  if (target === 0) {
-    return 0;
-  }
-
-  if (target > 0) {
-    return clampProgress(target / current);
-  }
-
-  return clampProgress(current / target);
-}
-
-/**
  * @param {unknown} rawCondition
  */
 function parseUnlockCondition(rawCondition) {
@@ -204,92 +148,6 @@ function evaluateUnlockCondition(ast, state) {
 }
 
 /**
- * Canonical unlock-progress estimator for unlock AST nodes.
- *
- * UI placeholder composition MUST use this API (via `UnlockEvaluator`) instead of
- * layer-specific heuristics so progress semantics stay deterministic engine-wide.
- *
- * Stable operator behavior:
- * - `resourceGte`: numeric ratio `current/required` clamped to `[0, 1]`.
- * - `compare`: `gt/gte/lt/lte` use deterministic threshold progress;
- *   `eq/neq` are binary (`0` or `1`).
- * - `flag` / `always`: binary (`0` or `1`).
- * - `all`: arithmetic mean of child progress.
- * - `any`: maximum child progress.
- * - `not`: inversion (`1 - childProgress`).
- *
- * @param {any} ast
- * @param {Record<string, unknown>} state
- * @returns {number}
- */
-function evaluateUnlockProgress(ast, state) {
-  if (ast.type === 'always') {
-    return ast.value ? 1 : 0;
-  }
-
-  if (ast.type === 'resourceGte') {
-    const read = readPath(state, ast.path);
-    if (!read.exists || typeof read.value !== 'number') {
-      return 0;
-    }
-
-    if (ast.value <= 0) {
-      return read.value >= ast.value ? 1 : 0;
-    }
-
-    return clampProgress(read.value / ast.value);
-  }
-
-  if (ast.type === 'compare') {
-    const read = readPath(state, ast.path);
-    if (!read.exists || typeof read.value !== 'number') {
-      return 0;
-    }
-
-    if (ast.op === 'eq' || ast.op === 'neq') {
-      return evaluateUnlockCondition(ast, state) ? 1 : 0;
-    }
-
-    if (ast.op === 'gt' || ast.op === 'gte') {
-      return estimateThresholdProgress({
-        current: read.value,
-        target: ast.value,
-        direction: 'at-least',
-      });
-    }
-
-    return estimateThresholdProgress({
-      current: read.value,
-      target: ast.value,
-      direction: 'at-most',
-    });
-  }
-
-  if (ast.type === 'flag') {
-    const read = readPath(state, ast.path);
-    return read.exists && read.value === true ? 1 : 0;
-  }
-
-  if (ast.type === 'all') {
-    const total = ast.children.reduce((sum, child) => sum + evaluateUnlockProgress(child, state), 0);
-    return clampProgress(total / ast.children.length);
-  }
-
-  if (ast.type === 'any') {
-    return ast.children.reduce((best, child) => {
-      const childProgress = evaluateUnlockProgress(child, state);
-      return childProgress > best ? childProgress : best;
-    }, 0);
-  }
-
-  if (ast.type === 'not') {
-    return clampProgress(1 - evaluateUnlockProgress(ast.child, state));
-  }
-
-  return 0;
-}
-
-/**
  * @param {{ wasUnlocked: boolean, ast: any, state: Record<string, unknown>, phase: string }} input
  */
 function evaluateUnlockTransition(input) {
@@ -312,6 +170,5 @@ module.exports = {
   COMPARISON_OPS,
   parseUnlockCondition,
   evaluateUnlockCondition,
-  evaluateUnlockProgress,
   evaluateUnlockTransition,
 };
