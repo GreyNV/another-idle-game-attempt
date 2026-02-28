@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "prototype-path-integration"
+  },
+  "systems": {
+    "tickMs": 100
+  },
+  "state": {
+    "resources": {
+      "xp": 1
+    },
+    "flags": {
+      "betaUnlocked": false
+    }
+  },
+  "layers": [
+    {
+      "id": "alpha",
+      "type": "progressLayer",
+      "unlock": {
+        "always": true
+      },
+      "sublayers": [
+        {
+          "id": "main",
+          "type": "progress",
+          "unlock": {
+            "always": true
+          },
+          "sections": [
+            {
+              "id": "actions",
+              "unlock": {
+                "always": true
+              },
+              "elements": [
+                {
+                  "id": "stable",
+                  "type": "progressBar",
+                  "unlock": {
+                    "always": true
+                  }
+                },
+                {
+                  "id": "xp-gated",
+                  "type": "upgrade",
+                  "unlock": {
+                    "resourceGte": {
+                      "path": "resources.xp",
+                      "value": 1
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beta",
+      "type": "progressLayer",
+      "unlock": {
+        "flag": {
+          "path": "flags.betaUnlocked"
+        }
+      },
+      "sublayers": [
+        {
+          "id": "hidden",
+          "type": "progress",
+          "sections": [
+            {
+              "id": "secret",
+              "elements": [
+                {
+                  "id": "beta-only",
+                  "type": "upgrade"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
