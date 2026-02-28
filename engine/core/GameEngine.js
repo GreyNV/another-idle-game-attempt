@@ -48,7 +48,11 @@ class GameEngine {
     this.onRenderCompose =
       typeof options.onRenderCompose === 'function'
         ? options.onRenderCompose
-        : (context) => this.uiComposer.compose(context.definition, { unlockState: context.summary.unlocks });
+        : (context) =>
+            this.uiComposer.compose(context.definition, {
+              unlockState: context.summary.unlocks,
+              isUnlocked: (nodeRef) => this.#isUnlockedRef(nodeRef, context.summary.unlocks),
+            });
 
     this.intentQueue = [];
     this.lastTickSummary = null;
@@ -310,6 +314,23 @@ class GameEngine {
       modifierResolver: this.modifierResolver,
       layerResetService: this.layerResetService,
     };
+  }
+
+
+  #isUnlockedRef(nodeRef, unlockSummary) {
+    if (!unlockSummary) {
+      return true;
+    }
+
+    if (Array.isArray(unlockSummary.unlockedRefs)) {
+      return unlockSummary.unlockedRefs.includes(nodeRef);
+    }
+
+    if (unlockSummary.unlocked && typeof unlockSummary.unlocked === 'object') {
+      return Boolean(unlockSummary.unlocked[nodeRef]);
+    }
+
+    return true;
   }
 
   #buildLayerWritePath(layerStatePath, pathSuffix) {

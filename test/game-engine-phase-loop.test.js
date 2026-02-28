@@ -84,6 +84,50 @@ function runUnlockEvaluatorDefaultCase() {
   assert.deepStrictEqual(engine.stateStore.get('derived.unlocks').transitions, ['layer:idle']);
 }
 
+
+function runRenderComposerBackwardCompatibilityCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  const captured = {
+    unlockState: null,
+    isUnlockedType: null,
+    idleUnlocked: null,
+  };
+
+  const uiComposer = {
+    compose(_definition, options) {
+      captured.unlockState = options.unlockState;
+      captured.isUnlockedType = typeof options.isUnlocked;
+      captured.idleUnlocked = options.isUnlocked('layer:idle');
+      return { layers: [] };
+    },
+  };
+
+  const unlockEvaluator = {
+    evaluateAll() {
+      return {
+        unlockedRefs: ['layer:idle'],
+        unlocked: { 'layer:idle': true },
+        transitions: [],
+      };
+    },
+  };
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    uiComposer,
+    unlockEvaluator,
+    timeSystem: { getDeltaTime: () => 1 },
+  });
+
+  engine.initialize(validDefinition);
+  const summary = engine.tick();
+
+  assert.deepStrictEqual(summary.ui, { layers: [] });
+  assert.ok(captured.unlockState, 'default render path should pass unlockState to injected composer');
+  assert.strictEqual(captured.isUnlockedType, 'function', 'default render path should pass isUnlocked callback for compatibility');
+  assert.strictEqual(captured.idleUnlocked, true, 'isUnlocked callback should resolve unlock status from the same unlock pass');
+}
+
 function runSameTickDispatchCase() {
   const validDefinition = loadFixture('valid-definition.json');
   const delivered = [];
@@ -247,6 +291,7 @@ function runGuardrailCases() {
 function run() {
   runPhaseOrderAndLayerOrderCase();
   runUnlockEvaluatorDefaultCase();
+  runRenderComposerBackwardCompatibilityCase();
   runSameTickDispatchCase();
   runGuardrailCases();
   runQueueOnlyFifoAndSnapshotCase();
