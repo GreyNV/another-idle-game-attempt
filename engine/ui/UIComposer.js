@@ -2,7 +2,7 @@ const { formatNodeRef } = require('../systems/unlocks/nodeRef');
 
 class UIComposer {
   compose(definition, options = {}) {
-    const isUnlocked = typeof options.isUnlocked === 'function' ? options.isUnlocked : () => true;
+    const isUnlocked = this.#resolveUnlockPredicate(options);
     const layers = Array.isArray(definition.layers) ? definition.layers : [];
 
     const uiLayers = [];
@@ -24,6 +24,27 @@ class UIComposer {
     return {
       layers: uiLayers,
     };
+  }
+
+  #resolveUnlockPredicate(options) {
+    if (typeof options.isUnlocked === 'function') {
+      return options.isUnlocked;
+    }
+
+    const unlockState = options.unlockState;
+    if (!unlockState) {
+      return () => true;
+    }
+
+    if (Array.isArray(unlockState.unlockedRefs)) {
+      return (nodeRef) => unlockState.unlockedRefs.includes(nodeRef);
+    }
+
+    if (unlockState.unlocked && typeof unlockState.unlocked === 'object') {
+      return (nodeRef) => Boolean(unlockState.unlocked[nodeRef]);
+    }
+
+    return () => true;
   }
 
   #composeSublayers(layer, isUnlocked) {

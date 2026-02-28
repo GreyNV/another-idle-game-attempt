@@ -44,16 +44,14 @@ class GameEngine {
     this.layerEventSubscriptionTokens = [];
 
     this.onLayerUpdate = typeof options.onLayerUpdate === 'function' ? options.onLayerUpdate : () => {};
-    this.onUnlockEvaluation =
-      typeof options.onUnlockEvaluation === 'function'
-        ? options.onUnlockEvaluation
-        : () => this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
+    this.onUnlockEvaluation = typeof options.onUnlockEvaluation === 'function' ? options.onUnlockEvaluation : () => {};
     this.onRenderCompose =
       typeof options.onRenderCompose === 'function'
         ? options.onRenderCompose
         : (context) =>
             this.uiComposer.compose(context.definition, {
-              isUnlocked: (ref) => this.#isUnlockedRef(ref, context.summary.unlocks),
+              unlockState: context.summary.unlocks,
+              isUnlocked: (nodeRef) => this.#isUnlockedRef(nodeRef, context.summary.unlocks),
             });
 
     this.intentQueue = [];
@@ -166,7 +164,7 @@ class GameEngine {
     summary.dispatch = this.eventBus.getLastDispatchReport();
 
     this.#enterPhase(ENGINE_PHASES.UNLOCK_EVALUATION);
-    summary.unlocks = this.onUnlockEvaluation(this.#buildPhaseContext(summary));
+    summary.unlocks = this.#runUnlockEvaluationPhase(summary);
 
     this.#enterPhase(ENGINE_PHASES.RENDER);
     summary.ui = this.onRenderCompose(this.#buildPhaseContext(summary));
@@ -225,6 +223,13 @@ class GameEngine {
       layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
     };
+  }
+
+  #runUnlockEvaluationPhase(summary) {
+    const unlockSummary = this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
+    this.stateStore.setDerived('unlocks', unlockSummary);
+    this.onUnlockEvaluation(this.#buildPhaseContext({ ...summary, unlocks: unlockSummary }), unlockSummary);
+    return unlockSummary;
   }
 
   #wireRuntimeSystems() {
@@ -311,21 +316,6 @@ class GameEngine {
     };
   }
 
-  #buildLayerWritePath(layerStatePath, pathSuffix) {
-    if (pathSuffix === undefined || pathSuffix === null || pathSuffix === '') {
-      return layerStatePath;
-    }
-
-    if (typeof pathSuffix !== 'string') {
-      throw new Error('Layer state path suffix must be a string when provided.');
-    }
-
-    if (pathSuffix.startsWith('layers.')) {
-      throw new Error('Cross-layer state write denied: use layer-local path suffixes only.');
-    }
-
-    return `${layerStatePath}.${pathSuffix}`;
-  }
 
   #isUnlockedRef(nodeRef, unlockSummary) {
     if (!unlockSummary) {
@@ -341,6 +331,22 @@ class GameEngine {
     }
 
     return true;
+  }
+
+  #buildLayerWritePath(layerStatePath, pathSuffix) {
+    if (pathSuffix === undefined || pathSuffix === null || pathSuffix === '') {
+      return layerStatePath;
+    }
+
+    if (typeof pathSuffix !== 'string') {
+      throw new Error('Layer state path suffix must be a string when provided.');
+    }
+
+    if (pathSuffix.startsWith('layers.')) {
+      throw new Error('Cross-layer state write denied: use layer-local path suffixes only.');
+    }
+
+    return `${layerStatePath}.${pathSuffix}`;
   }
 
   #enterPhase(phase) {

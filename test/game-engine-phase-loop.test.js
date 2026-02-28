@@ -26,7 +26,6 @@ function runPhaseOrderAndLayerOrderCase() {
     },
     onUnlockEvaluation(context) {
       phaseTrace.push(`unlock:${context.phase}`);
-      return { changed: [] };
     },
     onRenderCompose(context) {
       phaseTrace.push(`render:${context.phase}`);
@@ -54,6 +53,79 @@ function runPhaseOrderAndLayerOrderCase() {
     'unlock-evaluation',
     'render',
   ]);
+}
+
+function runUnlockEvaluatorDefaultCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  let evaluateCalls = 0;
+  const unlockEvaluator = {
+    evaluateAll(options) {
+      evaluateCalls += 1;
+      assert.deepStrictEqual(options, { phase: 'end-of-tick' });
+      return {
+        unlockedRefs: ['layer:idle'],
+        unlocked: { 'layer:idle': true },
+        transitions: ['layer:idle'],
+      };
+    },
+  };
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    unlockEvaluator,
+    timeSystem: { getDeltaTime: () => 1 },
+  });
+
+  engine.initialize(validDefinition);
+  const summary = engine.tick();
+
+  assert.strictEqual(evaluateCalls, 1, 'tick should always use unlockEvaluator by default in unlock phase');
+  assert.deepStrictEqual(summary.unlocks.transitions, ['layer:idle']);
+  assert.deepStrictEqual(engine.stateStore.get('derived.unlocks').transitions, ['layer:idle']);
+}
+
+
+function runRenderComposerBackwardCompatibilityCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  const captured = {
+    unlockState: null,
+    isUnlockedType: null,
+    idleUnlocked: null,
+  };
+
+  const uiComposer = {
+    compose(_definition, options) {
+      captured.unlockState = options.unlockState;
+      captured.isUnlockedType = typeof options.isUnlocked;
+      captured.idleUnlocked = options.isUnlocked('layer:idle');
+      return { layers: [] };
+    },
+  };
+
+  const unlockEvaluator = {
+    evaluateAll() {
+      return {
+        unlockedRefs: ['layer:idle'],
+        unlocked: { 'layer:idle': true },
+        transitions: [],
+      };
+    },
+  };
+
+  const engine = new GameEngine({
+    devModeStrict: false,
+    uiComposer,
+    unlockEvaluator,
+    timeSystem: { getDeltaTime: () => 1 },
+  });
+
+  engine.initialize(validDefinition);
+  const summary = engine.tick();
+
+  assert.deepStrictEqual(summary.ui, { layers: [] });
+  assert.ok(captured.unlockState, 'default render path should pass unlockState to injected composer');
+  assert.strictEqual(captured.isUnlockedType, 'function', 'default render path should pass isUnlocked callback for compatibility');
+  assert.strictEqual(captured.idleUnlocked, true, 'isUnlocked callback should resolve unlock status from the same unlock pass');
 }
 
 function runSameTickDispatchCase() {
@@ -218,6 +290,8 @@ function runGuardrailCases() {
 
 function run() {
   runPhaseOrderAndLayerOrderCase();
+  runUnlockEvaluatorDefaultCase();
+  runRenderComposerBackwardCompatibilityCase();
   runSameTickDispatchCase();
   runGuardrailCases();
   runQueueOnlyFifoAndSnapshotCase();
