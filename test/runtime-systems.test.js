@@ -4,7 +4,7 @@ const path = require('path');
 
 const { StateStore } = require('../engine/systems/state-store/StateStore');
 const { TimeSystem } = require('../engine/systems/time/TimeSystem');
-const { applySoftcap } = require('../engine/systems/modifiers/applySoftcap');
+const { applySoftcap, SUPPORTED_SOFTCAP_MODES } = require('../engine/systems/modifiers/applySoftcap');
 const { ModifierResolver } = require('../engine/systems/modifiers/ModifierResolver');
 const { LayerResetService } = require('../engine/systems/reset/LayerResetService');
 const { UIComposer } = require('../engine/ui/UIComposer');
@@ -50,6 +50,8 @@ function runModifierCase() {
   const unchanged = applySoftcap(50, { mode: 'power', softcapAt: 100, power: 0.5 });
   const softcapped = resolver.resolve('layer:idle/sublayer:routines/section:jobs/element:woodcut', 'gain.gold', 400);
 
+  assert.deepStrictEqual(SUPPORTED_SOFTCAP_MODES, ['power']);
+  assert.throws(() => applySoftcap(120, { mode: 'log', softcapAt: 100 }), /Unsupported softcap mode/);
   assert.strictEqual(unchanged, 50);
   assert.ok(softcapped < 400);
   assert.ok(softcapped > 100);

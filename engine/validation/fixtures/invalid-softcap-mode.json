@@ -21,7 +21,7 @@
           "scope": "layer:idle",
           "key": "gain.gold",
           "softcapAt": 10,
-          "mode": "curve"
+          "mode": "log"
         }
       ],
       "sublayers": [
