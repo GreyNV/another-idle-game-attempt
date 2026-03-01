@@ -1,5 +1,5 @@
 const { formatNodeRef } = require('./nodeRef');
-const { parseUnlockCondition, evaluateUnlockTransition } = require('./unlockCondition');
+const { parseUnlockCondition, evaluateUnlockProgress, evaluateUnlockTransition } = require('./unlockCondition');
 
 class UnlockEvaluator {
   constructor(options = {}) {
@@ -49,6 +49,25 @@ class UnlockEvaluator {
       unlocked,
       transitions,
     };
+  }
+
+  /**
+   * Canonical unlock-progress snapshot for UI placeholders.
+   *
+   * UI composition must consume these values (which delegate to
+   * `evaluateUnlockProgress`) instead of layer-specific heuristics.
+   *
+   * @returns {Record<string, number>}
+   */
+  evaluateProgressAll() {
+    const state = this.stateStore.snapshot().canonical;
+    const progressByRef = {};
+
+    for (const target of this.targets) {
+      progressByRef[target.ref] = evaluateUnlockProgress(target.ast, state);
+    }
+
+    return progressByRef;
   }
 
   #collectTargets(definition) {
