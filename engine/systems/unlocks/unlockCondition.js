@@ -37,11 +37,24 @@ function clampProgress(value) {
   return value;
 }
 
+
+/**
+ * Progress fallback for zero-threshold comparisons. Produces a smooth approach
+ * curve where progress increases as distance to zero shrinks.
+ *
+ * @param {number} current
+ * @returns {number}
+ */
+function estimateZeroThresholdProgress(current) {
+  return clampProgress(1 / (1 + Math.abs(current)));
+}
+
 /**
  * Stable progress approximation for threshold operators.
  *
  * For `gte`/`gt` this reports how close `current` is to `target` from below.
  * For `lte`/`lt` this reports how close `current` is to `target` from above.
+ * For zero thresholds, progress increases smoothly as values approach zero.
  *
  * @param {{ current: number, target: number, direction: 'at-least' | 'at-most', strict?: boolean }} input
  * @returns {number}
@@ -54,7 +67,7 @@ function estimateThresholdProgress(input) {
     if (current >= target) {
       progress = 1;
     } else if (target === 0) {
-      progress = 0;
+      progress = estimateZeroThresholdProgress(current);
     } else if (target > 0) {
       progress = clampProgress(current / target);
     } else {
@@ -71,7 +84,7 @@ function estimateThresholdProgress(input) {
   if (current <= target) {
     progress = 1;
   } else if (target === 0) {
-    progress = 0;
+    progress = estimateZeroThresholdProgress(current);
   } else if (target > 0) {
     progress = clampProgress(target / current);
   } else {

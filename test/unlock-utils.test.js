@@ -189,6 +189,25 @@ function runUnlockProgressCases() {
   assert.strictEqual(evaluateUnlockCondition(notLtBoundaryAst.value, state), true, 'not(lt) should be unlocked at equality boundary');
   assert.strictEqual(evaluateUnlockProgress(notLtBoundaryAst.value, state), 1, 'not(lt) progress should be 1 when unlocked at equality boundary');
 
+
+  const gteZeroFarAst = parseUnlockCondition({ compare: { path: 'resources.debt', op: 'gte', value: 0 } });
+  assert.strictEqual(gteZeroFarAst.ok, true, 'gte zero AST should parse');
+  const gteZeroFarProgress = evaluateUnlockProgress(gteZeroFarAst.value, state);
+  assert(gteZeroFarProgress > 0 && gteZeroFarProgress < 1, 'gte zero progress should be partial when approaching boundary from below');
+
+  const gteZeroNearState = { ...state, resources: { ...state.resources, debt: -1 } };
+  const gteZeroNearProgress = evaluateUnlockProgress(gteZeroFarAst.value, gteZeroNearState);
+  assert(gteZeroNearProgress > gteZeroFarProgress, 'gte zero progress should increase as current gets closer to zero');
+
+  const lteZeroFarAst = parseUnlockCondition({ compare: { path: 'resources.cap', op: 'lte', value: 0 } });
+  assert.strictEqual(lteZeroFarAst.ok, true, 'lte zero AST should parse');
+  const lteZeroFarProgress = evaluateUnlockProgress(lteZeroFarAst.value, state);
+  assert(lteZeroFarProgress > 0 && lteZeroFarProgress < 1, 'lte zero progress should be partial when approaching boundary from above');
+
+  const lteZeroNearState = { ...state, resources: { ...state.resources, cap: 1 } };
+  const lteZeroNearProgress = evaluateUnlockProgress(lteZeroFarAst.value, lteZeroNearState);
+  assert(lteZeroNearProgress > lteZeroFarProgress, 'lte zero progress should increase as current gets closer to zero');
+
   const missingPathAst = parseUnlockCondition({ resourceGte: { path: 'resources.unknown', value: 10 } });
   assert.strictEqual(missingPathAst.ok, true, 'missing path AST should parse');
   assert.strictEqual(evaluateUnlockProgress(missingPathAst.value, state), 0, 'missing numeric path has zero progress');
