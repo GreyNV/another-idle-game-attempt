@@ -25,6 +25,80 @@ function readPath(root, dottedPath) {
 const COMPARISON_OPS = new Set(['gt', 'gte', 'lt', 'lte', 'eq', 'neq']);
 
 /**
+ * @param {number} value
+ * @returns {number}
+ */
+function clampProgress(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+
+/**
+ * Progress fallback for zero-threshold comparisons. Produces a smooth approach
+ * curve where progress increases as distance to zero shrinks.
+ *
+ * @param {number} current
+ * @returns {number}
+ */
+function estimateZeroThresholdProgress(current) {
+  return clampProgress(1 / (1 + Math.abs(current)));
+}
+
+/**
+ * Stable progress approximation for threshold operators.
+ *
+ * For `gte`/`gt` this reports how close `current` is to `target` from below.
+ * For `lte`/`lt` this reports how close `current` is to `target` from above.
+ * For zero thresholds, progress increases smoothly as values approach zero.
+ *
+ * @param {{ current: number, target: number, direction: 'at-least' | 'at-most', strict?: boolean }} input
+ * @returns {number}
+ */
+function estimateThresholdProgress(input) {
+  const { current, target, direction, strict = false } = input;
+
+  let progress = 0;
+  if (direction === 'at-least') {
+    if (current >= target) {
+      progress = 1;
+    } else if (target === 0) {
+      progress = estimateZeroThresholdProgress(current);
+    } else if (target > 0) {
+      progress = clampProgress(current / target);
+    } else {
+      progress = clampProgress(target / current);
+    }
+
+    if (strict && current <= target) {
+      return Math.min(progress, 1 - Number.EPSILON);
+    }
+
+    return progress;
+  }
+
+  if (current <= target) {
+    progress = 1;
+  } else if (target === 0) {
+    progress = estimateZeroThresholdProgress(current);
+  } else if (target > 0) {
+    progress = clampProgress(target / current);
+  } else {
+    progress = clampProgress(current / target);
+  }
+
+  if (strict && current >= target) {
+    return Math.min(progress, 1 - Number.EPSILON);
+  }
+
+  return progress;
+}
+
+/**
  * @param {unknown} rawCondition
  */
 function parseUnlockCondition(rawCondition) {
@@ -148,6 +222,99 @@ function evaluateUnlockCondition(ast, state) {
 }
 
 /**
+ * Canonical unlock-progress estimator for unlock AST nodes.
+ *
+ * UI placeholder composition MUST use this API (via `UnlockEvaluator`) instead of
+ * layer-specific heuristics so progress semantics stay deterministic engine-wide.
+ *
+ * Stable operator behavior:
+ * - `resourceGte`: numeric ratio `current/required` clamped to `[0, 1]`.
+ * - `compare`: `gt/gte/lt/lte` use deterministic threshold progress. Strict
+ *   operators (`gt`/`lt`) never report `1` unless the strict condition is true;
+ *   `eq/neq` are binary (`0` or `1`).
+ * - `flag` / `always`: binary (`0` or `1`).
+ * - `all`: arithmetic mean of child progress.
+ * - `any`: maximum child progress.
+ * - `not`: inversion (`1 - childProgress`), but returns `1` exactly when
+ *   `evaluateUnlockCondition(notNode, state)` is already true.
+ *
+ * @param {any} ast
+ * @param {Record<string, unknown>} state
+ * @returns {number}
+ */
+function evaluateUnlockProgress(ast, state) {
+  if (ast.type === 'always') {
+    return ast.value ? 1 : 0;
+  }
+
+  if (ast.type === 'resourceGte') {
+    const read = readPath(state, ast.path);
+    if (!read.exists || typeof read.value !== 'number') {
+      return 0;
+    }
+
+    if (ast.value <= 0) {
+      return read.value >= ast.value ? 1 : 0;
+    }
+
+    return clampProgress(read.value / ast.value);
+  }
+
+  if (ast.type === 'compare') {
+    const read = readPath(state, ast.path);
+    if (!read.exists || typeof read.value !== 'number') {
+      return 0;
+    }
+
+    if (ast.op === 'eq' || ast.op === 'neq') {
+      return evaluateUnlockCondition(ast, state) ? 1 : 0;
+    }
+
+    if (ast.op === 'gt' || ast.op === 'gte') {
+      return estimateThresholdProgress({
+        current: read.value,
+        target: ast.value,
+        direction: 'at-least',
+        strict: ast.op === 'gt',
+      });
+    }
+
+    return estimateThresholdProgress({
+      current: read.value,
+      target: ast.value,
+      direction: 'at-most',
+      strict: ast.op === 'lt',
+    });
+  }
+
+  if (ast.type === 'flag') {
+    const read = readPath(state, ast.path);
+    return read.exists && read.value === true ? 1 : 0;
+  }
+
+  if (ast.type === 'all') {
+    const total = ast.children.reduce((sum, child) => sum + evaluateUnlockProgress(child, state), 0);
+    return clampProgress(total / ast.children.length);
+  }
+
+  if (ast.type === 'any') {
+    return ast.children.reduce((best, child) => {
+      const childProgress = evaluateUnlockProgress(child, state);
+      return childProgress > best ? childProgress : best;
+    }, 0);
+  }
+
+  if (ast.type === 'not') {
+    if (evaluateUnlockCondition(ast, state)) {
+      return 1;
+    }
+    return clampProgress(1 - evaluateUnlockProgress(ast.child, state));
+  }
+
+  return 0;
+}
+
+/**
  * @param {{ wasUnlocked: boolean, ast: any, state: Record<string, unknown>, phase: string }} input
  */
 function evaluateUnlockTransition(input) {
@@ -170,5 +337,6 @@ module.exports = {
   COMPARISON_OPS,
   parseUnlockCondition,
   evaluateUnlockCondition,
+  evaluateUnlockProgress,
   evaluateUnlockTransition,
 };

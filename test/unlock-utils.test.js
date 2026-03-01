@@ -4,6 +4,7 @@ const { parseNodeRef, normalizeNodeRef } = require('../engine/systems/unlocks/no
 const {
   parseUnlockCondition,
   evaluateUnlockCondition,
+  evaluateUnlockProgress,
   evaluateUnlockTransition,
 } = require('../engine/systems/unlocks/unlockCondition');
 
@@ -136,10 +137,87 @@ function runUnlockEvaluationCases() {
   }, /end-of-tick/);
 }
 
+
+function runUnlockProgressCases() {
+  const state = {
+    resources: { xp: 50, cap: 100, debt: -20 },
+    flags: { ready: false },
+  };
+
+  const progressAst = parseUnlockCondition({
+    all: [
+      { resourceGte: { path: 'resources.xp', value: 100 } },
+      { compare: { path: 'resources.cap', op: 'gte', value: 200 } },
+      { any: [{ flag: { path: 'flags.ready' } }, { compare: { path: 'resources.debt', op: 'lte', value: -10 } }] },
+      { not: { flag: { path: 'flags.ready' } } },
+    ],
+  });
+  assert.strictEqual(progressAst.ok, true, 'progress AST should parse');
+
+  const progress = evaluateUnlockProgress(progressAst.value, state);
+  assert.strictEqual(progress, 0.75, 'all should average child progress deterministically');
+
+  const eqAst = parseUnlockCondition({ compare: { path: 'resources.xp', op: 'eq', value: 50 } });
+  assert.strictEqual(eqAst.ok, true, 'eq AST should parse');
+  assert.strictEqual(evaluateUnlockProgress(eqAst.value, state), 1, 'eq progress is binary when true');
+
+  const neqAst = parseUnlockCondition({ compare: { path: 'resources.xp', op: 'neq', value: 50 } });
+  assert.strictEqual(neqAst.ok, true, 'neq AST should parse');
+  assert.strictEqual(evaluateUnlockProgress(neqAst.value, state), 0, 'neq progress is binary when false');
+
+
+  const gtBoundaryAst = parseUnlockCondition({ compare: { path: 'resources.xp', op: 'gt', value: 50 } });
+  assert.strictEqual(gtBoundaryAst.ok, true, 'gt boundary AST should parse');
+  const gtBoundaryProgress = evaluateUnlockProgress(gtBoundaryAst.value, state);
+  assert(gtBoundaryProgress < 1, 'gt boundary progress must stay below 1 while still locked');
+  assert.strictEqual(evaluateUnlockCondition(gtBoundaryAst.value, state), false, 'gt boundary remains locked at equality');
+
+  const ltBoundaryAst = parseUnlockCondition({ compare: { path: 'resources.cap', op: 'lt', value: 100 } });
+  assert.strictEqual(ltBoundaryAst.ok, true, 'lt boundary AST should parse');
+  const ltBoundaryProgress = evaluateUnlockProgress(ltBoundaryAst.value, state);
+  assert(ltBoundaryProgress < 1, 'lt boundary progress must stay below 1 while still locked');
+  assert.strictEqual(evaluateUnlockCondition(ltBoundaryAst.value, state), false, 'lt boundary remains locked at equality');
+
+
+  const notGtBoundaryAst = parseUnlockCondition({ not: { compare: { path: 'resources.xp', op: 'gt', value: 50 } } });
+  assert.strictEqual(notGtBoundaryAst.ok, true, 'not(gt) boundary AST should parse');
+  assert.strictEqual(evaluateUnlockCondition(notGtBoundaryAst.value, state), true, 'not(gt) should be unlocked at equality boundary');
+  assert.strictEqual(evaluateUnlockProgress(notGtBoundaryAst.value, state), 1, 'not(gt) progress should be 1 when unlocked at equality boundary');
+
+  const notLtBoundaryAst = parseUnlockCondition({ not: { compare: { path: 'resources.cap', op: 'lt', value: 100 } } });
+  assert.strictEqual(notLtBoundaryAst.ok, true, 'not(lt) boundary AST should parse');
+  assert.strictEqual(evaluateUnlockCondition(notLtBoundaryAst.value, state), true, 'not(lt) should be unlocked at equality boundary');
+  assert.strictEqual(evaluateUnlockProgress(notLtBoundaryAst.value, state), 1, 'not(lt) progress should be 1 when unlocked at equality boundary');
+
+
+  const gteZeroFarAst = parseUnlockCondition({ compare: { path: 'resources.debt', op: 'gte', value: 0 } });
+  assert.strictEqual(gteZeroFarAst.ok, true, 'gte zero AST should parse');
+  const gteZeroFarProgress = evaluateUnlockProgress(gteZeroFarAst.value, state);
+  assert(gteZeroFarProgress > 0 && gteZeroFarProgress < 1, 'gte zero progress should be partial when approaching boundary from below');
+
+  const gteZeroNearState = { ...state, resources: { ...state.resources, debt: -1 } };
+  const gteZeroNearProgress = evaluateUnlockProgress(gteZeroFarAst.value, gteZeroNearState);
+  assert(gteZeroNearProgress > gteZeroFarProgress, 'gte zero progress should increase as current gets closer to zero');
+
+  const lteZeroFarAst = parseUnlockCondition({ compare: { path: 'resources.cap', op: 'lte', value: 0 } });
+  assert.strictEqual(lteZeroFarAst.ok, true, 'lte zero AST should parse');
+  const lteZeroFarProgress = evaluateUnlockProgress(lteZeroFarAst.value, state);
+  assert(lteZeroFarProgress > 0 && lteZeroFarProgress < 1, 'lte zero progress should be partial when approaching boundary from above');
+
+  const lteZeroNearState = { ...state, resources: { ...state.resources, cap: 1 } };
+  const lteZeroNearProgress = evaluateUnlockProgress(lteZeroFarAst.value, lteZeroNearState);
+  assert(lteZeroNearProgress > lteZeroFarProgress, 'lte zero progress should increase as current gets closer to zero');
+
+  const missingPathAst = parseUnlockCondition({ resourceGte: { path: 'resources.unknown', value: 10 } });
+  assert.strictEqual(missingPathAst.ok, true, 'missing path AST should parse');
+  assert.strictEqual(evaluateUnlockProgress(missingPathAst.value, state), 0, 'missing numeric path has zero progress');
+}
+
 function run() {
   runNodeRefCases();
   runUnlockAstCases();
   runUnlockEvaluationCases();
+  runUnlockProgressCases();
   console.log('unlock-utils tests passed');
 }
 
