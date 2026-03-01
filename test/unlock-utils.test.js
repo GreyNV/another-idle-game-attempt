@@ -7,6 +7,7 @@ const {
   evaluateUnlockProgress,
   evaluateUnlockTransition,
 } = require('../engine/systems/unlocks/unlockCondition');
+const { UnlockEvaluator } = require('../engine/systems/unlocks/UnlockEvaluator');
 
 function runNodeRefCases() {
   const cases = [
@@ -213,11 +214,104 @@ function runUnlockProgressCases() {
   assert.strictEqual(evaluateUnlockProgress(missingPathAst.value, state), 0, 'missing numeric path has zero progress');
 }
 
+function runUnlockEvaluatorStatusCases() {
+  const definition = {
+    layers: [
+      {
+        id: 'idle',
+        unlock: { always: true },
+        sublayers: [
+          {
+            id: 'jobs',
+            unlock: { compare: { path: 'resources.xp', op: 'gte', value: 10 } },
+            sections: [
+              {
+                id: 'manual',
+                unlock: { compare: { path: 'resources.gold', op: 'gte', value: 10 } },
+                elements: [
+                  {
+                    id: 'foraging',
+                    unlock: { flag: { path: 'resources.flags.unlocked' } },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const published = [];
+  const evaluator = new UnlockEvaluator({
+    definition,
+    stateStore: {
+      snapshot: () => ({
+        canonical: {
+          resources: {
+            xp: 5,
+            gold: 0,
+            flags: { unlocked: false },
+          },
+        },
+      }),
+    },
+    eventBus: {
+      publish: (event) => {
+        published.push(event);
+      },
+    },
+  });
+
+  const summary = evaluator.evaluateAll({ phase: 'end-of-tick' });
+  const refs = [
+    'layer:idle',
+    'layer:idle/sublayer:jobs',
+    'layer:idle/sublayer:jobs/section:manual',
+    'layer:idle/sublayer:jobs/section:manual/element:foraging',
+  ];
+
+  assert.deepStrictEqual(Object.keys(summary.statusByRef), refs, 'statusByRef must include every collected target ref');
+  assert.strictEqual(summary.statusByRef['layer:idle'].unlocked, true, 'always-unlocked layer must report unlocked');
+  assert.strictEqual(summary.statusByRef['layer:idle'].progress, 1, 'unlocked nodes report progress=1');
+  assert.strictEqual(
+    summary.statusByRef['layer:idle'].showPlaceholder,
+    false,
+    'unlocked nodes should never show placeholders'
+  );
+
+  assert.strictEqual(summary.statusByRef['layer:idle/sublayer:jobs'].unlocked, false, 'locked sublayer remains locked');
+  assert(summary.statusByRef['layer:idle/sublayer:jobs'].progress > 0, 'locked sublayer should report partial progress');
+  assert.strictEqual(
+    summary.statusByRef['layer:idle/sublayer:jobs'].showPlaceholder,
+    true,
+    'locked refs with partial progress should show placeholders'
+  );
+
+  assert.strictEqual(
+    summary.statusByRef['layer:idle/sublayer:jobs/section:manual'].showPlaceholder,
+    false,
+    'locked refs with zero progress should not show placeholders'
+  );
+  assert.strictEqual(
+    summary.statusByRef['layer:idle/sublayer:jobs/section:manual/element:foraging'].showPlaceholder,
+    false,
+    'locked refs with zero progress should keep placeholders hidden'
+  );
+
+  assert.deepStrictEqual(
+    published.map((event) => event.payload.targetRef),
+    ['layer:idle'],
+    'UNLOCKED should only publish for transitioned refs'
+  );
+}
+
 function run() {
   runNodeRefCases();
   runUnlockAstCases();
   runUnlockEvaluationCases();
   runUnlockProgressCases();
+  runUnlockEvaluatorStatusCases();
   console.log('unlock-utils tests passed');
 }
 
