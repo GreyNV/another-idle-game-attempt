@@ -178,6 +178,17 @@ function runUnlockProgressCases() {
   assert(ltBoundaryProgress < 1, 'lt boundary progress must stay below 1 while still locked');
   assert.strictEqual(evaluateUnlockCondition(ltBoundaryAst.value, state), false, 'lt boundary remains locked at equality');
 
+
+  const notGtBoundaryAst = parseUnlockCondition({ not: { compare: { path: 'resources.xp', op: 'gt', value: 50 } } });
+  assert.strictEqual(notGtBoundaryAst.ok, true, 'not(gt) boundary AST should parse');
+  assert.strictEqual(evaluateUnlockCondition(notGtBoundaryAst.value, state), true, 'not(gt) should be unlocked at equality boundary');
+  assert.strictEqual(evaluateUnlockProgress(notGtBoundaryAst.value, state), 1, 'not(gt) progress should be 1 when unlocked at equality boundary');
+
+  const notLtBoundaryAst = parseUnlockCondition({ not: { compare: { path: 'resources.cap', op: 'lt', value: 100 } } });
+  assert.strictEqual(notLtBoundaryAst.ok, true, 'not(lt) boundary AST should parse');
+  assert.strictEqual(evaluateUnlockCondition(notLtBoundaryAst.value, state), true, 'not(lt) should be unlocked at equality boundary');
+  assert.strictEqual(evaluateUnlockProgress(notLtBoundaryAst.value, state), 1, 'not(lt) progress should be 1 when unlocked at equality boundary');
+
   const missingPathAst = parseUnlockCondition({ resourceGte: { path: 'resources.unknown', value: 10 } });
   assert.strictEqual(missingPathAst.ok, true, 'missing path AST should parse');
   assert.strictEqual(evaluateUnlockProgress(missingPathAst.value, state), 0, 'missing numeric path has zero progress');

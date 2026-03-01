@@ -222,7 +222,8 @@ function evaluateUnlockCondition(ast, state) {
  * - `flag` / `always`: binary (`0` or `1`).
  * - `all`: arithmetic mean of child progress.
  * - `any`: maximum child progress.
- * - `not`: inversion (`1 - childProgress`).
+ * - `not`: inversion (`1 - childProgress`), but returns `1` exactly when
+ *   `evaluateUnlockCondition(notNode, state)` is already true.
  *
  * @param {any} ast
  * @param {Record<string, unknown>} state
@@ -291,6 +292,9 @@ function evaluateUnlockProgress(ast, state) {
   }
 
   if (ast.type === 'not') {
+    if (evaluateUnlockCondition(ast, state)) {
+      return 1;
+    }
     return clampProgress(1 - evaluateUnlockProgress(ast.child, state));
   }
 
