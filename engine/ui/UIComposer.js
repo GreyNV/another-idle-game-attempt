@@ -2,21 +2,25 @@ const { formatNodeRef } = require('../systems/unlocks/nodeRef');
 
 class UIComposer {
   compose(definition, options = {}) {
-    const isUnlocked = this.#resolveUnlockPredicate(options);
+    const getUnlockStatus = this.#resolveUnlockStatusGetter(options);
     const layers = Array.isArray(definition.layers) ? definition.layers : [];
 
     const uiLayers = [];
     for (const layer of layers) {
       const layerRef = formatNodeRef({ layer: layer.id });
-      if (!isUnlocked(layerRef)) {
+      const layerStatus = getUnlockStatus(layerRef);
+      if (!this.#shouldIncludeNode(layerStatus)) {
         continue;
       }
 
-      const uiSublayers = this.#composeSublayers(layer, isUnlocked);
+      const uiSublayers = layerStatus.unlocked ? this.#composeSublayers(layer, getUnlockStatus) : [];
       uiLayers.push({
         id: layer.id,
         type: layer.type,
         nodeRef: layerRef,
+        placeholder: !layerStatus.unlocked,
+        unlockProgress: layerStatus.unlockProgress,
+        title: layer.title || layer.id,
         sublayers: uiSublayers,
       });
     }
@@ -26,34 +30,78 @@ class UIComposer {
     };
   }
 
-  #resolveUnlockPredicate(options) {
-    if (typeof options.isUnlocked === 'function') {
-      return options.isUnlocked;
+  #resolveUnlockStatusGetter(options) {
+    if (typeof options.getUnlockStatus === 'function') {
+      return (nodeRef) => this.#normalizeUnlockStatus(options.getUnlockStatus(nodeRef));
     }
 
     const unlockState = options.unlockState;
+    const fallbackGetter = this.#resolveLegacyUnlockStatusGetter(options, unlockState);
+
+    if (unlockState && unlockState.statusByRef && typeof unlockState.statusByRef === 'object') {
+      return (nodeRef) => {
+        const status = unlockState.statusByRef[nodeRef];
+        if (status && typeof status === 'object') {
+          return this.#normalizeUnlockStatus(status);
+        }
+
+        return fallbackGetter(nodeRef);
+      };
+    }
+
+    return fallbackGetter;
+  }
+
+  #resolveLegacyUnlockStatusGetter(options, unlockState) {
+    if (typeof options.isUnlocked === 'function') {
+      return (nodeRef) => this.#normalizeUnlockStatus({ unlocked: options.isUnlocked(nodeRef) });
+    }
+
     if (!unlockState) {
-      return () => true;
+      return () => this.#normalizeUnlockStatus({ unlocked: true });
     }
 
     if (Array.isArray(unlockState.unlockedRefs)) {
-      return (nodeRef) => unlockState.unlockedRefs.includes(nodeRef);
+      return (nodeRef) => this.#normalizeUnlockStatus({ unlocked: unlockState.unlockedRefs.includes(nodeRef) });
     }
 
     if (unlockState.unlocked && typeof unlockState.unlocked === 'object') {
-      return (nodeRef) => Boolean(unlockState.unlocked[nodeRef]);
+      return (nodeRef) => this.#normalizeUnlockStatus({ unlocked: Boolean(unlockState.unlocked[nodeRef]) });
     }
 
-    return () => true;
+    return () => this.#normalizeUnlockStatus({ unlocked: true });
   }
 
-  #composeSublayers(layer, isUnlocked) {
+  #normalizeUnlockStatus(status) {
+    const unlocked = Boolean(status && status.unlocked);
+    const unlockProgress = Number.isFinite(status && status.progress)
+      ? status.progress
+      : Number.isFinite(status && status.unlockProgress)
+        ? status.unlockProgress
+        : unlocked
+          ? 1
+          : 0;
+    const showPlaceholder = Boolean(status && status.showPlaceholder);
+
+    return {
+      unlocked,
+      unlockProgress,
+      showPlaceholder,
+    };
+  }
+
+  #shouldIncludeNode(status) {
+    return status.unlocked || status.showPlaceholder;
+  }
+
+  #composeSublayers(layer, getUnlockStatus) {
     const sublayers = Array.isArray(layer.sublayers) ? layer.sublayers : [];
     const uiSublayers = [];
 
     for (const sublayer of sublayers) {
       const sublayerRef = formatNodeRef({ layer: layer.id, sublayer: sublayer.id });
-      if (!isUnlocked(sublayerRef)) {
+      const sublayerStatus = getUnlockStatus(sublayerRef);
+      if (!this.#shouldIncludeNode(sublayerStatus)) {
         continue;
       }
 
@@ -61,34 +109,41 @@ class UIComposer {
         id: sublayer.id,
         type: sublayer.type,
         nodeRef: sublayerRef,
-        sections: this.#composeSections(layer, sublayer, isUnlocked),
+        placeholder: !sublayerStatus.unlocked,
+        unlockProgress: sublayerStatus.unlockProgress,
+        title: sublayer.title || sublayer.id,
+        sections: sublayerStatus.unlocked ? this.#composeSections(layer, sublayer, getUnlockStatus) : [],
       });
     }
 
     return uiSublayers;
   }
 
-  #composeSections(layer, sublayer, isUnlocked) {
+  #composeSections(layer, sublayer, getUnlockStatus) {
     const sections = Array.isArray(sublayer.sections) ? sublayer.sections : [];
     const uiSections = [];
 
     for (const section of sections) {
       const sectionRef = formatNodeRef({ layer: layer.id, sublayer: sublayer.id, section: section.id });
-      if (!isUnlocked(sectionRef)) {
+      const sectionStatus = getUnlockStatus(sectionRef);
+      if (!this.#shouldIncludeNode(sectionStatus)) {
         continue;
       }
 
       uiSections.push({
         id: section.id,
         nodeRef: sectionRef,
-        elements: this.#composeElements(layer, sublayer, section, isUnlocked),
+        placeholder: !sectionStatus.unlocked,
+        unlockProgress: sectionStatus.unlockProgress,
+        title: section.title || section.id,
+        elements: sectionStatus.unlocked ? this.#composeElements(layer, sublayer, section, getUnlockStatus) : [],
       });
     }
 
     return uiSections;
   }
 
-  #composeElements(layer, sublayer, section, isUnlocked) {
+  #composeElements(layer, sublayer, section, getUnlockStatus) {
     const elements = Array.isArray(section.elements) ? section.elements : [];
     const uiElements = [];
 
@@ -99,7 +154,8 @@ class UIComposer {
         section: section.id,
         element: element.id,
       });
-      if (!isUnlocked(elementRef)) {
+      const elementStatus = getUnlockStatus(elementRef);
+      if (!this.#shouldIncludeNode(elementStatus)) {
         continue;
       }
 
@@ -107,6 +163,9 @@ class UIComposer {
         id: element.id,
         type: element.type,
         nodeRef: elementRef,
+        placeholder: !elementStatus.unlocked,
+        unlockProgress: elementStatus.unlockProgress,
+        title: element.title || element.id,
       });
     }
 

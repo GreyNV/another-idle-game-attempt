@@ -154,18 +154,20 @@ function runVerticalSliceCase() {
   const tickThreeSublayer = tickThree.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
   assert.ok(tickThree.unlocks.transitions.includes(gatedSublayerRef), 'locked sublayer should transition when xp reaches 2');
   assert.ok(tickThreeSublayer, 'UI should include sublayer after sublayer unlock condition is met');
-  assert.deepStrictEqual(tickThreeSublayer.sections, [], 'section remains hidden until its own unlock condition is met');
+  assert.strictEqual(tickThreeSublayer.sections.length, 1, 'section placeholder should render when unlock progress is partial');
+  assert.strictEqual(tickThreeSublayer.sections[0].id, 'gated-section');
+  assert.strictEqual(tickThreeSublayer.sections[0].placeholder, true);
+  assert.deepStrictEqual(tickThreeSublayer.sections[0].elements, [], 'placeholder section should not render child elements until unlocked');
 
   engine.stateStore.set('resources.xp', 3);
   const tickFour = engine.tick();
   const tickFourSublayer = tickFour.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
   assert.ok(tickFour.unlocks.transitions.includes(gatedSectionRef), 'locked section should transition when xp reaches 3');
   assert.strictEqual(tickFourSublayer.sections[0].id, 'gated-section');
-  assert.deepStrictEqual(
-    tickFourSublayer.sections[0].elements,
-    [],
-    'element remains hidden until element unlock condition is met'
-  );
+  assert.strictEqual(tickFourSublayer.sections[0].placeholder, false);
+  assert.strictEqual(tickFourSublayer.sections[0].elements.length, 1, 'element placeholder should render while partially unlocked');
+  assert.strictEqual(tickFourSublayer.sections[0].elements[0].id, 'gated-element');
+  assert.strictEqual(tickFourSublayer.sections[0].elements[0].placeholder, true);
 
   engine.stateStore.set('resources.xp', 4);
   const tickFive = engine.tick();
