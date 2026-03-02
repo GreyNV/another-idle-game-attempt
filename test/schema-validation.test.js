@@ -135,6 +135,107 @@ function runRoutineSchemaGateChecks() {
   assert.match(routineIssue.hint, /1.2.0/);
 }
 
+
+function runRoutineSchemaValidationChecks() {
+  const routineInvalidShape = {
+    meta: { schemaVersion: '1.2.0', gameId: 'routine-shape-invalid' },
+    systems: { tickMs: 100 },
+    state: { resources: { xp: 0 }, flags: { jobUnlocked: false } },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        sublayers: [
+          {
+            id: 'routines',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'woodcut-routine',
+                    type: 'routine',
+                    mode: '',
+                    slot: { poolId: '', cost: 0 },
+                    produces: [{ path: 'resources.xp', perSecond: -1 }],
+                    unknownField: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  let caught = null;
+  try {
+    parseGameDefinition(routineInvalidShape);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'routineInvalidShape should fail schema validation');
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_UNKNOWN_FIELD' && entry.path.includes('/unknownField')));
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_MODE_REQUIRED' && entry.path.includes('/mode')));
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_SLOT_POOL_ID_REQUIRED' && entry.path.includes('/slot/poolId')));
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_SLOT_COST_INVALID' && entry.path.includes('/slot/cost')));
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_PER_SECOND_INVALID' && entry.path.includes('/produces/0/perSecond')));
+
+  const routineMissingPaths = {
+    meta: { schemaVersion: '1.2.0', gameId: 'routine-path-invalid' },
+    systems: { tickMs: 100 },
+    state: {
+      resources: { xp: 0 },
+      flags: { jobUnlocked: false },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        sublayers: [
+          {
+            id: 'routines',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'woodcut-routine',
+                    type: 'routine',
+                    mode: 'auto',
+                    slot: { poolId: 'workers', cost: 1 },
+                    produces: [{ path: 'resources.missing', perSecond: 1 }],
+                    consumes: [{ path: 'resources.missing2', perSecond: 0 }],
+                    requires: [{ path: 'flags.missingRequirement' }],
+                    effects: { setFlag: { path: 'resources.badFlag' } },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  caught = null;
+  try {
+    parseGameDefinition(routineMissingPaths);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'routineMissingPaths should fail reference validation');
+  assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_PATH_MISSING' && entry.path.includes('/produces/0/path')));
+  assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_PATH_MISSING' && entry.path.includes('/consumes/0/path')));
+  assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_PATH_MISSING' && entry.path.includes('/requires/0/path')));
+  assert(caught.issues.some((entry) => entry.code === 'REF_SET_FLAG_PATH_POLICY' && entry.path.includes('/effects/setFlag/path')));
+}
+
 function runSoftcapModeAlignmentCheck() {
   const fixture = loadFixture('invalid-softcap-mode.json');
   assert.strictEqual(fixture.layers[0].softcaps[0].mode, 'log');
@@ -167,6 +268,7 @@ function run() {
   runSoftcapModeAlignmentCheck();
   runSchemaVersionComparisonChecks();
   runRoutineSchemaGateChecks();
+  runRoutineSchemaValidationChecks();
 
   const engine = new GameEngine();
   engine.initialize(valid);

@@ -28,7 +28,18 @@
                   "type": "routine",
                   "unlock": {
                     "always": true
-                  }
+                  },
+                  "slot": {
+                    "poolId": "workerSlots",
+                    "cost": 1
+                  },
+                  "mode": "manual",
+                  "produces": [
+                    {
+                      "path": "resources.xp",
+                      "perSecond": 1
+                    }
+                  ]
                 }
               ]
             }
