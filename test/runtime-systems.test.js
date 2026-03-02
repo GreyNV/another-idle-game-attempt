@@ -83,14 +83,40 @@ function runUIComposerCase() {
   const composer = new UIComposer();
 
   const uiTree = composer.compose(validDefinition, {
-    isUnlocked(nodeRef) {
-      return nodeRef !== 'layer:idle/sublayer:routines/section:jobs/element:woodcut-upgrade';
+    getUnlockStatus(nodeRef) {
+      if (nodeRef === 'layer:idle/sublayer:routines/section:jobs/element:woodcut-upgrade') {
+        return { unlocked: false, progress: 0.6, showPlaceholder: true };
+      }
+
+      return { unlocked: true, progress: 1, showPlaceholder: false };
     },
   });
 
+  const layer = uiTree.layers[0];
+  assert.strictEqual(layer.placeholder, false);
+  assert.strictEqual(layer.unlockProgress, 1);
+  assert.strictEqual(layer.title, 'idle');
+
   const elements = uiTree.layers[0].sublayers[0].sections[0].elements;
-  assert.strictEqual(elements.length, 1);
-  assert.strictEqual(elements[0].id, 'woodcut');
+  assert.strictEqual(elements.length, 2);
+  assert.strictEqual(elements[1].id, 'woodcut-upgrade');
+  assert.strictEqual(elements[1].placeholder, true);
+  assert.strictEqual(elements[1].unlockProgress, 0.6);
+  assert.strictEqual(elements[1].title, 'woodcut-upgrade');
+
+  const parentLockedTree = composer.compose(validDefinition, {
+    getUnlockStatus(nodeRef) {
+      if (nodeRef === 'layer:idle/sublayer:routines') {
+        return { unlocked: false, progress: 0.25, showPlaceholder: true };
+      }
+
+      return { unlocked: true, progress: 1, showPlaceholder: false };
+    },
+  });
+
+  const placeholderSublayer = parentLockedTree.layers[0].sublayers[0];
+  assert.strictEqual(placeholderSublayer.placeholder, true);
+  assert.strictEqual(placeholderSublayer.sections.length, 0);
 }
 
 function runGameEngineWiringCase() {
