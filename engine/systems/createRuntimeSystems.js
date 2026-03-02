@@ -33,11 +33,20 @@ function createRuntimeSystems(options = {}) {
     });
   const uiComposer = options.uiComposer || new UIComposer();
 
+  const hasInjectedNodeLockResolver = typeof options.isNodeLocked === 'function';
+  if (!options.intentRouter && strictValidation && !hasInjectedNodeLockResolver) {
+    throw new Error(
+      'createRuntimeSystems requires an explicit isNodeLocked callback when constructing IntentRouter in strict mode.'
+    );
+  }
+
   const intentRouter =
     options.intentRouter ||
     new IntentRouter({
       strictValidation,
-      isNodeLocked: options.isNodeLocked || (() => false),
+      // Deterministic dependency injection rule:
+      // production/strict runtime must provide explicit lock resolution from GameEngine unlock snapshots.
+      isNodeLocked: hasInjectedNodeLockResolver ? options.isNodeLocked : () => false,
     });
 
   const layerResetService =
