@@ -37,6 +37,7 @@ class GameEngine {
     this.modifierResolver = null;
     this.layerResetService = null;
     this.unlockEvaluator = null;
+    this.routineSystem = null;
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
@@ -81,6 +82,7 @@ class GameEngine {
     this.modifierResolver = systems.modifierResolver;
     this.layerResetService = systems.layerResetService;
     this.unlockEvaluator = systems.unlockEvaluator;
+    this.routineSystem = systems.routineSystem;
     this.uiComposer = systems.uiComposer;
 
     registerBuiltinLayers(this.layerRegistry);
@@ -198,6 +200,9 @@ class GameEngine {
   }
 
   #runLayerUpdatePhase(dt) {
+    const dtSeconds = dt / 1000;
+    this.routineSystem.update(dtSeconds);
+
     const layers = Array.isArray(this.definition.layers) ? this.definition.layers : [];
     const updatedLayerIds = [];
 
@@ -223,6 +228,7 @@ class GameEngine {
       modifierResolver: this.modifierResolver,
       layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
+      routineSystem: this.routineSystem,
     };
   }
 
@@ -246,6 +252,11 @@ class GameEngine {
 
       return this.layerResetService.preview(intent.payload.layerId);
     });
+
+
+    this.intentRouter.register('ROUTINE_START', (intent) => this.routineSystem.handleIntent(intent.type, intent.payload));
+    this.intentRouter.register('ROUTINE_STOP', (intent) => this.routineSystem.handleIntent(intent.type, intent.payload));
+    this.intentRouter.register('ROUTINE_TOGGLE', (intent) => this.routineSystem.handleIntent(intent.type, intent.payload));
 
     const token = this.eventBus.subscribe(
       'LAYER_RESET_REQUESTED',
