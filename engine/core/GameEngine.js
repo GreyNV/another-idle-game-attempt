@@ -56,6 +56,7 @@ class GameEngine {
               unlockState: context.summary.unlocks,
               isUnlocked: (nodeRef) => this.#isUnlockedRef(nodeRef, context.summary.unlocks),
               getUnlockStatus: (nodeRef) => this.#getUnlockStatusRef(nodeRef, context.summary.unlocks),
+              getStateValue: (path) => context.stateStore.get(path),
             });
 
     this.intentQueue = [];
