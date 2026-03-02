@@ -244,7 +244,7 @@ function runUiIntegrationRoutineViewCase() {
   assert.strictEqual(woodcutElement.status, 'active');
   assert.deepStrictEqual(woodcutElement.intents.toggle, {
     type: 'ROUTINE_TOGGLE',
-    payload: { layerId: 'idle', routineId: 'woodcut' },
+    payload: { layerId: 'idle', routineId: 'woodcut', poolId: 'workers' },
   });
 }
 
