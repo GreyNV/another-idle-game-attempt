@@ -282,6 +282,101 @@ function runDispatchCycleDeferralGuardrailCase() {
   assert.deepStrictEqual(delivered, ['LAYER_RESET_REQUESTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_EXECUTED', 'LAYER_RESET_REQUESTED']);
 }
 
+function runDeterministicReplayCase() {
+  const replayDefinition = {
+    meta: { schemaVersion: '1.2.0', gameId: 'deterministic-replay' },
+    systems: { tickMs: 1000 },
+    state: {
+      resources: { wood: 0, xp: 0, energy: 4 },
+      layers: {
+        idle: {
+          routinePools: {
+            workers: { total: 1, used: 0, activeRoutineId: null },
+            training: { total: 1, used: 0, activeRoutineId: null },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        unlock: { always: true },
+        routineSystem: {
+          slotPools: {
+            workers: {
+              totalPath: 'layers.idle.routinePools.workers.total',
+              usedPath: 'layers.idle.routinePools.workers.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.workers.activeRoutineId',
+            },
+            training: {
+              totalPath: 'layers.idle.routinePools.training.total',
+              usedPath: 'layers.idle.routinePools.training.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.training.activeRoutineId',
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'main',
+            type: 'progress',
+            unlock: { always: true },
+            sections: [
+              {
+                id: 'jobs',
+                unlock: { always: true },
+                elements: [
+                  {
+                    id: 'woodcut',
+                    type: 'routine',
+                    mode: 'manual',
+                    slot: { poolId: 'workers', cost: 1 },
+                    produces: [{ path: 'resources.wood', perSecond: 2 }],
+                    consumes: [{ path: 'resources.energy', perSecond: 1 }],
+                  },
+                  {
+                    id: 'sparring',
+                    type: 'routine',
+                    mode: 'manual',
+                    slot: { poolId: 'training', cost: 1 },
+                    produces: [{ path: 'resources.xp', perSecond: 1 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  function runReplay() {
+    const engine = new GameEngine({ devModeStrict: false, timeSystem: { getDeltaTime: () => 1000 } });
+    engine.initialize(replayDefinition);
+
+    const intentTimeline = [
+      [{ type: 'ROUTINE_START', payload: { layerId: 'idle', routineId: 'woodcut' } }],
+      [{ type: 'ROUTINE_START', payload: { layerId: 'idle', routineId: 'sparring' } }],
+      [{ type: 'ROUTINE_TOGGLE', payload: { layerId: 'idle', routineId: 'woodcut' } }],
+      [{ type: 'ROUTINE_START', payload: { layerId: 'idle', routineId: 'woodcut' } }],
+      [{ type: 'ROUTINE_STOP', payload: { layerId: 'idle', routineId: 'sparring' } }],
+    ];
+
+    for (const intents of intentTimeline) {
+      for (const intent of intents) {
+        engine.enqueueIntent(intent);
+      }
+      engine.tick();
+    }
+
+    return engine.stateStore.snapshot();
+  }
+
+  const runA = runReplay();
+  const runB = runReplay();
+  assert.deepStrictEqual(runA, runB, 'same deterministic intent timeline must produce the same final state snapshot');
+}
+
 function runGuardrailCases() {
   const validDefinition = loadFixture('valid-definition.json');
 
@@ -317,6 +412,7 @@ function run() {
   runGuardrailCases();
   runQueueOnlyFifoAndSnapshotCase();
   runDispatchCycleDeferralGuardrailCase();
+  runDeterministicReplayCase();
   console.log('game-engine-phase-loop tests passed');
 }
 

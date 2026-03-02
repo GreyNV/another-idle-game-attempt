@@ -356,6 +356,74 @@ function runRoutineSchemaValidationChecks() {
 
   assert(caught instanceof ValidationError, 'routineUnknownPool should fail reference validation');
   assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_SLOT_POOL_UNKNOWN' && entry.path.includes('/slot/poolId')));
+
+  const malformedRoutineDefinitions = {
+    meta: { schemaVersion: '1.2.0', gameId: 'routine-malformed-definitions' },
+    systems: { tickMs: 100 },
+    state: {
+      resources: { xp: 0 },
+      layers: {
+        idle: {
+          routinePools: {
+            workers: { total: 1, used: 0, activeRoutineId: null },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        routineSystem: {
+          slotPools: {
+            workers: {
+              totalPath: 'layers.idle.routinePools.workers.total',
+              usedPath: 'layers.idle.routinePools.workers.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.workers.activeRoutineId',
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'routines',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'invalid-mode',
+                    type: 'routine',
+                    mode: 'queued',
+                    slot: { poolId: 'workers', cost: 1 },
+                    produces: [{ path: 'resources.xp', perSecond: 1 }],
+                  },
+                  {
+                    id: 'invalid-delta-entry',
+                    type: 'routine',
+                    mode: 'manual',
+                    slot: { poolId: 'workers', cost: 1 },
+                    produces: [{ path: '', perSecond: 'fast' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  caught = null;
+  try {
+    parseGameDefinition(malformedRoutineDefinitions);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'malformedRoutineDefinitions should fail schema validation');
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_PATH_REQUIRED' && entry.path.includes('/produces/0/path')));
+  assert(caught.issues.some((entry) => entry.code === 'ROUTINE_PER_SECOND_INVALID' && entry.path.includes('/produces/0/perSecond')));
 }
 
 function runSoftcapModeAlignmentCheck() {
