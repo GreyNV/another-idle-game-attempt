@@ -114,6 +114,14 @@ class StateStore {
     patchPath(this.canonicalState, path, partial);
   }
 
+  replaceCanonical(nextState) {
+    if (!isPlainObject(nextState)) {
+      throw new Error('nextState must be a plain object');
+    }
+
+    this.canonicalState = deepClone(nextState);
+  }
+
   setDerived(path, value) {
     if (typeof path !== 'string' || path.trim().length === 0) {
       throw new Error('path must be a non-empty string');

@@ -33,6 +33,14 @@ function runStateStoreCase() {
   const snapshot = store.snapshot();
   assert.strictEqual(Object.isFrozen(snapshot), true);
   assert.strictEqual(snapshot.canonical.resources.xp, 2);
+
+  const nextCanonical = { resources: { xp: 9 }, layers: { idle: { unlocked: true } } };
+  store.replaceCanonical(nextCanonical);
+  nextCanonical.resources.xp = 0;
+
+  assert.strictEqual(store.get('resources.xp'), 9);
+  assert.strictEqual(store.get('derived.ui.unlockedCount'), 3);
+  assert.throws(() => store.replaceCanonical([]), /plain object/);
 }
 
 function runTimeSystemCase() {
@@ -64,6 +72,7 @@ function runLayerResetCase() {
 
   systems.stateStore.set('resources.xp', 150);
   systems.stateStore.set('resources.gold', 200);
+  systems.stateStore.setDerived('ui.lastAction', 'before-reset');
 
   const service = new LayerResetService({
     definition: validDefinition,
@@ -77,6 +86,7 @@ function runLayerResetCase() {
   const result = service.execute({ layerId: 'idle', reason: 'test' });
   assert.strictEqual(result.snapshot.canonical.resources.xp, 0);
   assert.strictEqual(result.snapshot.canonical.resources.gold, 200);
+  assert.strictEqual(result.snapshot.derived.ui.lastAction, 'before-reset');
 }
 
 function runUIComposerCase() {

@@ -75,7 +75,7 @@ class LayerResetService {
       }
     }
 
-    this.stateStore.canonicalState = baseCanonical;
+    this.stateStore.replaceCanonical(baseCanonical);
 
     if (this.eventBus) {
       this.eventBus.publish({
