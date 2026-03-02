@@ -228,9 +228,19 @@ function runRoutineElementViewModelCase() {
   assert.deepStrictEqual(routine.pool, { poolId: 'jobs', used: 1, total: 3 });
   assert.deepStrictEqual(routine.intents.toggle, {
     type: 'ROUTINE_TOGGLE',
-    payload: { layerId: 'idle', routineId: 'chop' },
+    payload: { layerId: 'idle', routineId: 'chop', poolId: 'jobs' },
   });
+
+  const systems = createRuntimeSystems({ definition, devModeStrict: true });
+  systems.intentRouter.register('ROUTINE_TOGGLE', (intent) =>
+    systems.routineSystem.handleIntent(intent.type, intent.payload)
+  );
+
+  const routeResult = systems.intentRouter.route(routine.intents.toggle);
+  assert.strictEqual(routeResult.ok, true);
+  assert.strictEqual(routeResult.code, 'INTENT_ROUTED');
 }
+
 
 function runGameEngineWiringCase() {
   const validDefinition = loadFixture('valid-definition.json');

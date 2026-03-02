@@ -230,6 +230,7 @@ class UIComposer {
           payload: {
             layerId,
             routineId,
+            poolId,
           },
         },
       },
