@@ -13,6 +13,35 @@ function loadFixtureRaw(name) {
   return fs.readFileSync(path.join(__dirname, '..', 'engine', 'validation', 'fixtures', name), 'utf8');
 }
 
+
+function findNode(uiTree, predicate) {
+  for (const layer of uiTree.layers || []) {
+    if (predicate(layer)) {
+      return layer;
+    }
+
+    for (const sublayer of layer.sublayers || []) {
+      if (predicate(sublayer)) {
+        return sublayer;
+      }
+
+      for (const section of sublayer.sections || []) {
+        if (predicate(section)) {
+          return section;
+        }
+
+        for (const element of section.elements || []) {
+          if (predicate(element)) {
+            return element;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function collectNodeRefs(uiTree) {
   const refs = [];
 
@@ -69,6 +98,7 @@ function runPrototypePathCase() {
     dispatchTrace.push(`secondary:${event.payload.layerId}`);
   });
 
+  engine.stateStore.set('resources.xp', 0);
   const summary = engine.tick();
 
   assert.deepStrictEqual(summary.updatedLayers, ['alpha', 'beta'], 'tick should preserve definition layer order');
@@ -83,12 +113,41 @@ function runPrototypePathCase() {
   const xpGatedRef = 'layer:alpha/sublayer:main/section:actions/element:xp-gated';
   const betaLayerRef = 'layer:beta';
 
-  assert.strictEqual(summary.unlocks.unlocked[xpGatedRef], true, 'unlock evaluation should unlock xp-gated node');
+  assert.strictEqual(summary.unlocks.unlocked[xpGatedRef], false, 'unlock evaluation should keep xp-gated node locked below threshold');
   assert.strictEqual(summary.unlocks.unlocked[betaLayerRef], false, 'unlock evaluation should keep beta layer locked');
+  assert.strictEqual(summary.unlocks.statusByRef[betaLayerRef].showPlaceholder, false, 'zero-progress locked layers should not render placeholders');
 
   const uiNodeRefs = collectNodeRefs(summary.ui);
-  assert.ok(uiNodeRefs.includes(xpGatedRef), 'UI tree should include unlocked xp-gated nodeRef');
-  assert.strictEqual(uiNodeRefs.includes(betaLayerRef), false, 'UI tree should exclude locked beta layer nodeRef');
+  assert.strictEqual(uiNodeRefs.includes(xpGatedRef), false, 'UI tree should omit xp-gated nodeRef when progress is zero');
+  assert.strictEqual(uiNodeRefs.includes(betaLayerRef), false, 'UI tree should exclude locked beta layer nodeRef when progress is zero');
+
+  engine.stateStore.set('resources.xp', 0.5);
+  const partialSummary = engine.tick();
+  assert.strictEqual(partialSummary.unlocks.statusByRef[xpGatedRef].unlocked, false, 'xp-gated node should remain locked below threshold');
+  assert(partialSummary.unlocks.statusByRef[xpGatedRef].progress > 0, 'locked node should report partial progress below threshold');
+  assert.strictEqual(partialSummary.unlocks.statusByRef[xpGatedRef].showPlaceholder, true, 'locked node with partial progress should show placeholder');
+
+  const xpPlaceholderNode = findNode(
+    partialSummary.ui,
+    (node) => node.nodeRef === xpGatedRef
+  );
+  assert.ok(xpPlaceholderNode, 'UI should render placeholder for locked node with partial progress');
+  assert.strictEqual(xpPlaceholderNode.placeholder, true, 'placeholder node should be marked placeholder');
+  assert.strictEqual(
+    xpPlaceholderNode.unlockProgress,
+    partialSummary.unlocks.statusByRef[xpGatedRef].progress,
+    'placeholder should include unlock progress metadata'
+  );
+
+  engine.stateStore.set('resources.xp', 1);
+  const unlockedSummary = engine.tick();
+  const xpUnlockedNode = findNode(
+    unlockedSummary.ui,
+    (node) => node.nodeRef === xpGatedRef
+  );
+  assert.ok(unlockedSummary.unlocks.transitions.includes(xpGatedRef), 'node should transition to unlocked at threshold');
+  assert.strictEqual(xpUnlockedNode.placeholder, false, 'node should flip from placeholder to unlocked at threshold');
+  assert.strictEqual(xpUnlockedNode.unlockProgress, 1, 'unlocked node should report complete progress metadata');
 }
 
 function run() {

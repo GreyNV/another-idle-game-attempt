@@ -215,11 +215,20 @@ function runUnlockProgressCases() {
 }
 
 function runUnlockEvaluatorStatusCases() {
+  const canonicalState = {
+    resources: {
+      layerXp: 5,
+      xp: 5,
+      gold: 0,
+      flags: { unlocked: false },
+    },
+  };
+
   const definition = {
     layers: [
       {
         id: 'idle',
-        unlock: { always: true },
+        unlock: { compare: { path: 'resources.layerXp', op: 'gte', value: 10 } },
         sublayers: [
           {
             id: 'jobs',
@@ -247,13 +256,7 @@ function runUnlockEvaluatorStatusCases() {
     definition,
     stateStore: {
       snapshot: () => ({
-        canonical: {
-          resources: {
-            xp: 5,
-            gold: 0,
-            flags: { unlocked: false },
-          },
-        },
+        canonical: canonicalState,
       }),
     },
     eventBus: {
@@ -272,12 +275,12 @@ function runUnlockEvaluatorStatusCases() {
   ];
 
   assert.deepStrictEqual(Object.keys(summary.statusByRef), refs, 'statusByRef must include every collected target ref');
-  assert.strictEqual(summary.statusByRef['layer:idle'].unlocked, true, 'always-unlocked layer must report unlocked');
-  assert.strictEqual(summary.statusByRef['layer:idle'].progress, 1, 'unlocked nodes report progress=1');
+  assert.strictEqual(summary.statusByRef['layer:idle'].unlocked, false, 'layer remains locked before threshold');
+  assert(summary.statusByRef['layer:idle'].progress > 0, 'layer should report partial progress before threshold');
   assert.strictEqual(
     summary.statusByRef['layer:idle'].showPlaceholder,
-    false,
-    'unlocked nodes should never show placeholders'
+    true,
+    'locked layers with partial progress should show placeholders'
   );
 
   assert.strictEqual(summary.statusByRef['layer:idle/sublayer:jobs'].unlocked, false, 'locked sublayer remains locked');
@@ -301,9 +304,21 @@ function runUnlockEvaluatorStatusCases() {
 
   assert.deepStrictEqual(
     published.map((event) => event.payload.targetRef),
-    ['layer:idle'],
-    'UNLOCKED should only publish for transitioned refs'
+    [],
+    'UNLOCKED should not publish when no refs transition'
   );
+
+  canonicalState.resources.layerXp = 10;
+  canonicalState.resources.xp = 10;
+  canonicalState.resources.gold = 10;
+  canonicalState.resources.flags.unlocked = true;
+
+  const unlockedSummary = evaluator.evaluateAll({ phase: 'end-of-tick' });
+  refs.forEach((ref) => {
+    assert.strictEqual(unlockedSummary.statusByRef[ref].unlocked, true, `${ref} should be unlocked at threshold`);
+    assert.strictEqual(unlockedSummary.statusByRef[ref].showPlaceholder, false, `${ref} should stop rendering placeholder when unlocked`);
+    assert.strictEqual(unlockedSummary.statusByRef[ref].progress, 1, `${ref} should report complete progress when unlocked`);
+  });
 }
 
 function run() {
