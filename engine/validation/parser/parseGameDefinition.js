@@ -91,6 +91,12 @@ function normalizeDefinitionForRuntime(definition) {
  * Parse and validate a game definition JSON payload.
  * Startup policy: fail-fast on any schema/reference error.
  *
+ * Source-of-truth contract: this parser + validator pipeline defines runtime
+ * acceptance semantics. The JSON schema mirror at
+ * engine/validation/schema/game-definition.schema.json must stay in lockstep
+ * with validateGameDefinitionSchema + unlockCondition parsing and is checked
+ * by test/schema-sync.test.js across fixtures.
+ *
  * @param {string|Record<string, unknown>} rawDefinition
  * @returns {Record<string, unknown>}
  */
