@@ -52,6 +52,7 @@ class GameEngine {
             this.uiComposer.compose(context.definition, {
               unlockState: context.summary.unlocks,
               isUnlocked: (nodeRef) => this.#isUnlockedRef(nodeRef, context.summary.unlocks),
+              getUnlockStatus: (nodeRef) => this.#getUnlockStatusRef(nodeRef, context.summary.unlocks),
             });
 
     this.intentQueue = [];
@@ -318,19 +319,34 @@ class GameEngine {
 
 
   #isUnlockedRef(nodeRef, unlockSummary) {
+    return this.#getUnlockStatusRef(nodeRef, unlockSummary).unlocked;
+  }
+
+  #getUnlockStatusRef(nodeRef, unlockSummary) {
     if (!unlockSummary) {
-      return true;
+      return { unlocked: true, progress: 1, showPlaceholder: false };
     }
 
-    if (Array.isArray(unlockSummary.unlockedRefs)) {
-      return unlockSummary.unlockedRefs.includes(nodeRef);
+    if (unlockSummary.statusByRef && typeof unlockSummary.statusByRef === 'object') {
+      const status = unlockSummary.statusByRef[nodeRef];
+      if (status && typeof status === 'object') {
+        return status;
+      }
     }
 
     if (unlockSummary.unlocked && typeof unlockSummary.unlocked === 'object') {
-      return Boolean(unlockSummary.unlocked[nodeRef]);
+      return {
+        unlocked: Boolean(unlockSummary.unlocked[nodeRef]),
+      };
     }
 
-    return true;
+    if (Array.isArray(unlockSummary.unlockedRefs)) {
+      return {
+        unlocked: unlockSummary.unlockedRefs.includes(nodeRef),
+      };
+    }
+
+    return { unlocked: true, progress: 1, showPlaceholder: false };
   }
 
   #buildLayerWritePath(layerStatePath, pathSuffix) {

@@ -90,14 +90,18 @@ function runRenderComposerBackwardCompatibilityCase() {
   const captured = {
     unlockState: null,
     isUnlockedType: null,
+    getUnlockStatusType: null,
     idleUnlocked: null,
+    idleStatus: null,
   };
 
   const uiComposer = {
     compose(_definition, options) {
       captured.unlockState = options.unlockState;
       captured.isUnlockedType = typeof options.isUnlocked;
+      captured.getUnlockStatusType = typeof options.getUnlockStatus;
       captured.idleUnlocked = options.isUnlocked('layer:idle');
+      captured.idleStatus = options.getUnlockStatus('layer:idle');
       return { layers: [] };
     },
   };
@@ -107,6 +111,13 @@ function runRenderComposerBackwardCompatibilityCase() {
       return {
         unlockedRefs: ['layer:idle'],
         unlocked: { 'layer:idle': true },
+        statusByRef: {
+          'layer:idle': {
+            unlocked: true,
+            progress: 1,
+            showPlaceholder: false,
+          },
+        },
         transitions: [],
       };
     },
@@ -125,7 +136,17 @@ function runRenderComposerBackwardCompatibilityCase() {
   assert.deepStrictEqual(summary.ui, { layers: [] });
   assert.ok(captured.unlockState, 'default render path should pass unlockState to injected composer');
   assert.strictEqual(captured.isUnlockedType, 'function', 'default render path should pass isUnlocked callback for compatibility');
+  assert.strictEqual(
+    captured.getUnlockStatusType,
+    'function',
+    'default render path should pass getUnlockStatus callback backed by unlock evaluator output'
+  );
   assert.strictEqual(captured.idleUnlocked, true, 'isUnlocked callback should resolve unlock status from the same unlock pass');
+  assert.deepStrictEqual(captured.idleStatus, {
+    unlocked: true,
+    progress: 1,
+    showPlaceholder: false,
+  });
 }
 
 function runSameTickDispatchCase() {
