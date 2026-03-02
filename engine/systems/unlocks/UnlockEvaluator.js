@@ -1,6 +1,9 @@
 const { formatNodeRef } = require('./nodeRef');
 const { parseUnlockCondition, evaluateUnlockProgress, evaluateUnlockTransition } = require('./unlockCondition');
 
+/** @typedef {import('../../core/contracts/UnlockEvaluatorContract').UnlockEvaluatorContract} UnlockEvaluatorContract */
+
+/** @implements {UnlockEvaluatorContract} */
 class UnlockEvaluator {
   constructor(options = {}) {
     this.definition = options.definition || { layers: [] };

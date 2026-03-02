@@ -1,5 +1,33 @@
-const REQUIRED_LAYER_METHODS = Object.freeze(['init', 'update', 'onEvent', 'getViewModel', 'destroy']);
+/**
+ * @typedef {object} LayerTickContext
+ * @property {import('./EventBusContract').EventBusContract} eventBus
+ * @property {import('./StateStoreContract').StateStoreContract} state
+ * @property {import('./IntentRouterContract').IntentRouterContract} intentRouter
+ * @property {import('./UnlockEvaluatorContract').UnlockEvaluatorContract} unlockEvaluator
+ * @property {import('./ModifierResolverContract').ModifierResolverContract} modifierResolver
+ */
 
+/**
+ * @typedef {object} BaseLayerContract
+ * @property {string} id
+ * @property {string} type
+ * @property {(context: LayerTickContext) => void} init
+ * @property {(context: LayerTickContext) => void} update
+ * @property {(event: import('./EventBusContract').RuntimeEvent, context: LayerTickContext) => void} onEvent
+ * @property {(context: LayerTickContext) => Record<string, unknown>} getViewModel
+ * @property {(context: LayerTickContext) => void} destroy
+ */
+
+const REQUIRED_LAYER_METHODS = Object.freeze(['init', 'update', 'onEvent', 'getViewModel', 'destroy']);
+const BASE_LAYER_CONTRACT = Object.freeze({
+  name: 'BaseLayerContract',
+  requiredMethods: REQUIRED_LAYER_METHODS,
+});
+
+/**
+ * @param {unknown} layer
+ * @param {{ type?: string, layerId?: string }} metadata
+ */
 function assertValidBaseLayerInstance(layer, metadata = {}) {
   const typeLabel = metadata.type || 'unknown';
   const layerIdLabel = metadata.layerId || 'unknown';
@@ -24,6 +52,7 @@ function assertValidBaseLayerInstance(layer, metadata = {}) {
 }
 
 module.exports = {
+  BASE_LAYER_CONTRACT,
   REQUIRED_LAYER_METHODS,
   assertValidBaseLayerInstance,
 };
