@@ -20,3 +20,10 @@ This file is the fast-start map for implementation agents working on the determi
 - **Read-only UI view models:** `engine/ui/UIComposer.js`
 - **Layer plugin registration/instantiation:** `engine/plugins/LayerRegistry.js`
 - **Layer reset keep-rules flow:** `engine/systems/reset/LayerResetService.js`
+
+## Dual-UI architecture entrypoints
+- Split plan and rollout phases: `docs/ui-project-split-plan.md`
+- Player-facing composition contract: `engine/ui/UIComposer.js`
+- Schema/definition gates for authoring workflows: `engine/validation/parser/parseGameDefinition.js`, `engine/validation/schema/validateGameDefinitionSchema.js`, `engine/validation/references/validateReferences.js`
+- Intent/event catalogs shared by both UIs: `engine/systems/catalogs/intentCatalog.js`, `engine/systems/catalogs/eventCatalog.js`
+- Rule reminder: Game UI is mobile-first; Author UI is desktop-first and may use a different frontend stack.

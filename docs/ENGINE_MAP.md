@@ -62,3 +62,12 @@ Stable implementation map for the deterministic runtime.
 - Extend `engine/ui/UIComposer.js` element composition branch for the new type.
 - Keep output read-only view-model data and emit intents for interactions.
 - Never mutate `StateStore` from UI composition.
+
+
+## Dual UI project direction
+
+- The repository roadmap supports two independent UI projects:
+  - Game UI: mobile-first player interface.
+  - Author UI: desktop/PC executable builder interface (may use a different stack).
+- `engine/ui/UIComposer.js` remains a renderer-agnostic composition layer, not a coupled app frontend.
+- Shared contracts for both UIs should be stabilized before implementation scaling (see `docs/ui-project-split-plan.md`).

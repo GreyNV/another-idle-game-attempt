@@ -12,7 +12,7 @@ This document binds Section 12 deliverables from `engine_blueprint_v_1.md` to th
 - `engine/plugins`
   - `LayerRegistry` and layer plugin registration/bootstrap.
 - `engine/ui`
-  - `UIComposer` read-only UI tree composition.
+  - `UIComposer` renderer-agnostic, read-only UI tree composition contract for external UI clients.
 - `engine/validation`
   - Parser + schema/reference validation gates.
 
@@ -115,3 +115,18 @@ Dependency direction constraints remain unchanged:
 - No registration-time reordering.
 
 Routine traversal follows authored order in `sublayers[].sections[].elements[]` within `RoutineSystem`.
+
+---
+
+## 5) Dual UI project plan alignment
+
+- Architecture now plans for two separate frontends:
+  - **Game UI** (mobile-first player runtime UX).
+  - **Author UI** (desktop/PC executable builder UX, different stack allowed).
+- Engine modules remain UI-framework-agnostic and expose stable contracts consumed by both UIs.
+- Primary planning doc: `docs/ui-project-split-plan.md`.
+- Shared boundary candidates to stabilize next:
+  - validation schema/version policy,
+  - intent/event catalogs,
+  - composed UI node model from `UIComposer`,
+  - validation error surfaces.
