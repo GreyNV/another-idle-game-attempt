@@ -3,6 +3,7 @@ const { formatNodeRef } = require('../systems/unlocks/nodeRef');
 class UIComposer {
   compose(definition, options = {}) {
     const getUnlockStatus = this.#resolveUnlockStatusGetter(options);
+    const getStateValue = this.#resolveStateGetter(options);
     const layers = Array.isArray(definition.layers) ? definition.layers : [];
 
     const uiLayers = [];
@@ -13,7 +14,7 @@ class UIComposer {
         continue;
       }
 
-      const uiSublayers = layerStatus.unlocked ? this.#composeSublayers(layer, getUnlockStatus) : [];
+      const uiSublayers = layerStatus.unlocked ? this.#composeSublayers(layer, getUnlockStatus, getStateValue) : [];
       uiLayers.push({
         id: layer.id,
         type: layer.type,
@@ -28,6 +29,29 @@ class UIComposer {
     return {
       layers: uiLayers,
     };
+  }
+
+  #resolveStateGetter(options) {
+    if (typeof options.getStateValue === 'function') {
+      return (path) => options.getStateValue(path);
+    }
+
+    const stateSnapshot = options.stateSnapshot;
+    if (stateSnapshot && typeof stateSnapshot === 'object') {
+      return (path) => {
+        const segments = String(path).split('.');
+        let cursor = stateSnapshot;
+        for (const segment of segments) {
+          if (!cursor || typeof cursor !== 'object') {
+            return undefined;
+          }
+          cursor = cursor[segment];
+        }
+        return cursor;
+      };
+    }
+
+    return () => undefined;
   }
 
   #resolveUnlockStatusGetter(options) {
@@ -94,7 +118,7 @@ class UIComposer {
     return status.unlocked || status.showPlaceholder;
   }
 
-  #composeSublayers(layer, getUnlockStatus) {
+  #composeSublayers(layer, getUnlockStatus, getStateValue) {
     const sublayers = Array.isArray(layer.sublayers) ? layer.sublayers : [];
     const uiSublayers = [];
 
@@ -112,14 +136,14 @@ class UIComposer {
         placeholder: !sublayerStatus.unlocked,
         unlockProgress: sublayerStatus.unlockProgress,
         title: sublayer.title || sublayer.id,
-        sections: sublayerStatus.unlocked ? this.#composeSections(layer, sublayer, getUnlockStatus) : [],
+        sections: sublayerStatus.unlocked ? this.#composeSections(layer, sublayer, getUnlockStatus, getStateValue) : [],
       });
     }
 
     return uiSublayers;
   }
 
-  #composeSections(layer, sublayer, getUnlockStatus) {
+  #composeSections(layer, sublayer, getUnlockStatus, getStateValue) {
     const sections = Array.isArray(sublayer.sections) ? sublayer.sections : [];
     const uiSections = [];
 
@@ -136,14 +160,14 @@ class UIComposer {
         placeholder: !sectionStatus.unlocked,
         unlockProgress: sectionStatus.unlockProgress,
         title: section.title || section.id,
-        elements: sectionStatus.unlocked ? this.#composeElements(layer, sublayer, section, getUnlockStatus) : [],
+        elements: sectionStatus.unlocked ? this.#composeElements(layer, sublayer, section, getUnlockStatus, getStateValue) : [],
       });
     }
 
     return uiSections;
   }
 
-  #composeElements(layer, sublayer, section, getUnlockStatus) {
+  #composeElements(layer, sublayer, section, getUnlockStatus, getStateValue) {
     const elements = Array.isArray(section.elements) ? section.elements : [];
     const uiElements = [];
 
@@ -159,17 +183,57 @@ class UIComposer {
         continue;
       }
 
-      uiElements.push({
+      const baseElementViewModel = {
         id: element.id,
         type: element.type,
         nodeRef: elementRef,
         placeholder: !elementStatus.unlocked,
         unlockProgress: elementStatus.unlockProgress,
         title: element.title || element.id,
-      });
+      };
+
+      uiElements.push(this.#composeRendererFacingElementViewModel(layer, element, baseElementViewModel, getStateValue));
     }
 
     return uiElements;
+  }
+
+  #composeRendererFacingElementViewModel(layer, element, baseElementViewModel, getStateValue) {
+    if (element.type !== 'routine') {
+      return baseElementViewModel;
+    }
+
+    const layerId = layer.id;
+    const routineId = element.id;
+    const poolId = element.slot && element.slot.poolId;
+    const poolConfig =
+      layer.routineSystem && layer.routineSystem.slotPoolsById && poolId
+        ? layer.routineSystem.slotPoolsById[poolId]
+        : null;
+
+    const active = getStateValue(`layers.${layerId}.routines.${routineId}.active`) === true;
+    const used = poolConfig ? getStateValue(poolConfig.usedPath) : undefined;
+    const total = poolConfig ? getStateValue(poolConfig.totalPath) : undefined;
+
+    return {
+      ...baseElementViewModel,
+      active,
+      status: active ? 'active' : 'inactive',
+      pool: {
+        poolId,
+        used: Number.isFinite(used) ? used : null,
+        total: Number.isFinite(total) ? total : null,
+      },
+      intents: {
+        toggle: {
+          type: 'ROUTINE_TOGGLE',
+          payload: {
+            layerId,
+            routineId,
+          },
+        },
+      },
+    };
   }
 }
 

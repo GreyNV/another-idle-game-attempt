@@ -141,6 +141,97 @@ function runUIComposerCase() {
   assert.strictEqual(placeholderSublayer.sections.length, 0);
 }
 
+
+
+function runRoutineElementViewModelCase() {
+  const definition = {
+    state: {
+      layers: {
+        idle: {
+          routines: {
+            chop: { active: true },
+          },
+          routinePools: {
+            jobs: {
+              total: 3,
+              used: 1,
+            },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        routineSystem: {
+          slotPoolsById: {
+            jobs: {
+              id: 'jobs',
+              totalPath: 'layers.idle.routinePools.jobs.total',
+              usedPath: 'layers.idle.routinePools.jobs.used',
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'routines',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'chop',
+                    type: 'routine',
+                    title: 'Chop Wood',
+                    slot: { poolId: 'jobs' },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const composer = new UIComposer();
+  const tree = composer.compose(definition, {
+    unlockState: {
+      statusByRef: {
+        'layer:idle': { unlocked: true, progress: 1, showPlaceholder: false },
+        'layer:idle/sublayer:routines': { unlocked: true, progress: 1, showPlaceholder: false },
+        'layer:idle/sublayer:routines/section:jobs': { unlocked: true, progress: 1, showPlaceholder: false },
+        'layer:idle/sublayer:routines/section:jobs/element:chop': {
+          unlocked: false,
+          progress: 0.45,
+          showPlaceholder: true,
+        },
+      },
+    },
+    getStateValue(path) {
+      const parts = path.split('.');
+      let cursor = definition.state;
+      for (const part of parts) {
+        cursor = cursor && cursor[part];
+      }
+      return cursor;
+    },
+  });
+
+  const routine = tree.layers[0].sublayers[0].sections[0].elements[0];
+  assert.strictEqual(routine.title, 'Chop Wood');
+  assert.strictEqual(routine.placeholder, true);
+  assert.strictEqual(routine.unlockProgress, 0.45);
+  assert.strictEqual(routine.active, true);
+  assert.strictEqual(routine.status, 'active');
+  assert.deepStrictEqual(routine.pool, { poolId: 'jobs', used: 1, total: 3 });
+  assert.deepStrictEqual(routine.intents.toggle, {
+    type: 'ROUTINE_TOGGLE',
+    payload: { layerId: 'idle', routineId: 'chop' },
+  });
+}
+
 function runGameEngineWiringCase() {
   const validDefinition = loadFixture('valid-definition.json');
   const engine = new GameEngine({ devModeStrict: false });
@@ -242,6 +333,7 @@ function run() {
   runModifierCase();
   runLayerResetCase();
   runUIComposerCase();
+  runRoutineElementViewModelCase();
   runGameEngineWiringCase();
   runCharacteristicAndMultiplierCase();
   console.log('runtime systems tests passed');
