@@ -10,15 +10,19 @@ This document is the canonical handoff for implementation agents in this reposit
 - Be explicit and deterministic in architecture decisions.
 - Favor small, composable modules over monolithic files.
 - Document invariants and dependency rules whenever adding core systems.
-- Keep UI read-only and intent-driven.
+- Keep both UIs intent-driven at engine boundaries; no direct canonical state mutation from UI code.
 
 ## Technology stack assumptions
-- TypeScript-style modular engine layout under:
+- Engine/runtime stays in modular deterministic core under:
   - `engine/core`
   - `engine/systems`
   - `engine/plugins`
-  - `engine/ui`
+  - `engine/ui` (renderer-agnostic composition contract, not a coupled frontend app)
   - `engine/validation`
+- Plan for **two separate UI projects**:
+  - `Game UI` (mobile-first player UX).
+  - `Author UI` (desktop/PC executable builder UX; may use a different stack).
+- Shared contracts (schema, intents/events, composed UI model) must be explicit and stable for both UI projects.
 - Markdown docs in `docs/` for implementation planning.
 
 ## Non-negotiable architecture rules
