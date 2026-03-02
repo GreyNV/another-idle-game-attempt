@@ -3,9 +3,11 @@ const { IntentRouter } = require('./intent/IntentRouter');
 const { StateStore } = require('./state-store/StateStore');
 const { TimeSystem } = require('./time/TimeSystem');
 const { ModifierResolver } = require('./modifiers/ModifierResolver');
+const { MultiplierCompiler } = require('./modifiers/MultiplierCompiler');
 const { LayerResetService } = require('./reset/LayerResetService');
 const { UnlockEvaluator } = require('./unlocks/UnlockEvaluator');
 const { RoutineSystem } = require('./routines/RoutineSystem');
+const { CharacteristicSystem } = require('./stats/CharacteristicSystem');
 const { UIComposer } = require('../ui/UIComposer');
 
 function createRuntimeSystems(options = {}) {
@@ -22,6 +24,13 @@ function createRuntimeSystems(options = {}) {
   const stateStore = options.stateStore || new StateStore(definition.state || {});
   const timeSystem = options.timeSystem || new TimeSystem();
   const modifierResolver = options.modifierResolver || new ModifierResolver({ definition });
+  const multiplierCompiler = options.multiplierCompiler || new MultiplierCompiler({ stateStore });
+  const characteristicSystem =
+    options.characteristicSystem ||
+    new CharacteristicSystem({
+      definition,
+      stateStore,
+    });
   const uiComposer = options.uiComposer || new UIComposer();
 
   const intentRouter =
@@ -53,6 +62,8 @@ function createRuntimeSystems(options = {}) {
       definition,
       stateStore,
       modifierResolver,
+      multiplierCompiler,
+      characteristicSystem,
       eventBus,
     });
 
@@ -61,6 +72,8 @@ function createRuntimeSystems(options = {}) {
     stateStore,
     timeSystem,
     modifierResolver,
+    multiplierCompiler,
+    characteristicSystem,
     intentRouter,
     layerResetService,
     unlockEvaluator,

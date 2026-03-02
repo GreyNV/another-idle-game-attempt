@@ -6,6 +6,7 @@ const { StateStore } = require('../engine/systems/state-store/StateStore');
 const { TimeSystem } = require('../engine/systems/time/TimeSystem');
 const { applySoftcap, SUPPORTED_SOFTCAP_MODES } = require('../engine/systems/modifiers/applySoftcap');
 const { ModifierResolver } = require('../engine/systems/modifiers/ModifierResolver');
+const { CharacteristicSystem } = require('../engine/systems/stats/CharacteristicSystem');
 const { LayerResetService } = require('../engine/systems/reset/LayerResetService');
 const { UIComposer } = require('../engine/ui/UIComposer');
 const { createRuntimeSystems } = require('../engine/systems/createRuntimeSystems');
@@ -158,6 +159,83 @@ function runGameEngineWiringCase() {
   assert.ok(summary.ui.layers.length > 0);
 }
 
+
+function runCharacteristicAndMultiplierCase() {
+  const definition = {
+    state: {
+      resources: { xp: 0 },
+      layers: {
+        idle: {
+          characteristics: {
+            strength: { xp: 27, level: 0 },
+          },
+          multipliers: {
+            'mul.routine.speed': {
+              gear: [0.2, 0.3],
+              buff: [0.5],
+            },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        characteristics: [
+          {
+            id: 'strength',
+            curve: { baseXp: 10, growth: 2, exponent: 1 },
+          },
+        ],
+        sublayers: [
+          {
+            id: 'main',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'chop',
+                    type: 'routine',
+                    slot: { poolId: 'jobs' },
+                    consumes: [],
+                    produces: [{ path: 'resources.xp', perSecond: 2 }],
+                    scaling: {
+                      speedMultiplierKeys: ['mul.routine.speed'],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const systems = createRuntimeSystems({
+    definition,
+    devModeStrict: false,
+    timeSystem: { getDeltaTime: () => 1000 },
+  });
+
+  const characteristicSystem = new CharacteristicSystem({ definition, stateStore: systems.stateStore });
+
+  const characteristicSnapshot = characteristicSystem.update();
+  assert.strictEqual(characteristicSnapshot.byLayer.idle.strength.level, 2);
+  assert.strictEqual(characteristicSnapshot.byLayer.idle.strength.xp, 5);
+  assert.strictEqual(systems.stateStore.get('derived.characteristics.byLayer.idle.strength.level'), 2);
+
+  const multiplierSnapshot = systems.multiplierCompiler.update();
+  assert.strictEqual(multiplierSnapshot.layers.idle['mul.routine.speed'], 2.25);
+  assert.strictEqual(systems.multiplierCompiler.getValue('idle', 'mul.unknown'), 1);
+
+  systems.routineSystem.handleIntent('ROUTINE_START', { layerId: 'idle', routineId: 'chop' });
+  const routineResult = systems.routineSystem.update(1);
+  assert.strictEqual(routineResult.applied[0].multipliers.speedMultiplier, 2.25);
+}
+
 function run() {
   runStateStoreCase();
   runTimeSystemCase();
@@ -165,6 +243,7 @@ function run() {
   runLayerResetCase();
   runUIComposerCase();
   runGameEngineWiringCase();
+  runCharacteristicAndMultiplierCase();
   console.log('runtime systems tests passed');
 }
 

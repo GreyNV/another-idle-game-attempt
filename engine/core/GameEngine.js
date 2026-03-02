@@ -38,6 +38,8 @@ class GameEngine {
     this.layerResetService = null;
     this.unlockEvaluator = null;
     this.routineSystem = null;
+    this.multiplierCompiler = null;
+    this.characteristicSystem = null;
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
@@ -83,6 +85,8 @@ class GameEngine {
     this.layerResetService = systems.layerResetService;
     this.unlockEvaluator = systems.unlockEvaluator;
     this.routineSystem = systems.routineSystem;
+    this.multiplierCompiler = systems.multiplierCompiler;
+    this.characteristicSystem = systems.characteristicSystem;
     this.uiComposer = systems.uiComposer;
 
     registerBuiltinLayers(this.layerRegistry);
@@ -147,6 +151,9 @@ class GameEngine {
       intentsRouted: [],
       dt: 0,
       updatedLayers: [],
+      routine: null,
+      characteristics: null,
+      multipliers: null,
       dispatchedHandlers: 0,
       dispatch: null,
       unlocks: null,
@@ -160,7 +167,11 @@ class GameEngine {
     summary.dt = this.#runTimePhase();
 
     this.#enterPhase(ENGINE_PHASES.LAYER_UPDATE);
-    summary.updatedLayers = this.#runLayerUpdatePhase(summary.dt);
+    const layerUpdateSummary = this.#runLayerUpdatePhase(summary.dt);
+    summary.updatedLayers = layerUpdateSummary.updatedLayerIds;
+    summary.routine = layerUpdateSummary.routine;
+    summary.characteristics = layerUpdateSummary.characteristics;
+    summary.multipliers = layerUpdateSummary.multipliers;
 
     this.#enterPhase(ENGINE_PHASES.EVENT_DISPATCH);
     summary.dispatchedHandlers = this.eventBus.dispatchQueued();
@@ -201,7 +212,9 @@ class GameEngine {
 
   #runLayerUpdatePhase(dt) {
     const dtSeconds = dt / 1000;
-    this.routineSystem.update(dtSeconds);
+    const multipliers = this.multiplierCompiler.update();
+    const routine = this.routineSystem.update(dtSeconds);
+    const characteristics = this.characteristicSystem.update();
 
     const layers = Array.isArray(this.definition.layers) ? this.definition.layers : [];
     const updatedLayerIds = [];
@@ -215,7 +228,12 @@ class GameEngine {
       updatedLayerIds.push(layer.id);
     }
 
-    return updatedLayerIds;
+    return {
+      updatedLayerIds,
+      routine,
+      characteristics,
+      multipliers,
+    };
   }
 
   #buildPhaseContext(summary) {
@@ -226,6 +244,8 @@ class GameEngine {
       eventBus: this.eventBus,
       stateStore: this.stateStore,
       modifierResolver: this.modifierResolver,
+      multiplierCompiler: this.multiplierCompiler,
+      characteristicSystem: this.characteristicSystem,
       layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
       routineSystem: this.routineSystem,
@@ -324,6 +344,8 @@ class GameEngine {
         snapshot: () => this.stateStore.snapshot(),
       },
       modifierResolver: this.modifierResolver,
+      multiplierCompiler: this.multiplierCompiler,
+      characteristicSystem: this.characteristicSystem,
       layerResetService: this.layerResetService,
     };
   }
