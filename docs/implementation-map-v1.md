@@ -176,6 +176,8 @@ export interface ModifierResolver {
 
 This invariant is mandatory for deterministic behavior and simulation parity.
 
+Routine evaluation order follows the same authored-order principle: `RoutineSystem` traverses routines in the original `sublayers[].sections[].elements[]` definition order per layer (no lexical sort), and active routine effects apply in that preserved order.
+
 ---
 
 ## 6) First integration slice (vertical path)

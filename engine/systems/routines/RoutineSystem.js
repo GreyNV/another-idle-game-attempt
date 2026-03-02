@@ -264,8 +264,7 @@ class RoutineSystem {
         continue;
       }
 
-      const routineIds = [...routinesByLayer.keys()].sort();
-      for (const routineId of routineIds) {
+      for (const routineId of routinesByLayer.keys()) {
         const entry = routinesByLayer.get(routineId);
         if (this.#isRoutineActive(layerId, routineId)) {
           active.push(entry);
