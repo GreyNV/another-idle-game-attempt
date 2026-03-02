@@ -15,7 +15,94 @@ function expectString(payload, key) {
   return typeof payload[key] === 'string' && payload[key].length > 0;
 }
 
+function expectOptionalString(payload, key) {
+  return payload[key] === undefined || typeof payload[key] === 'string';
+}
+
 const EVENT_CATALOG = Object.freeze({
+  ROUTINE_STARTED: Object.freeze({
+    payloadSchema: Object.freeze({
+      layerId: 'string',
+      routineId: 'string',
+      poolId: 'string',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!expectString(payload, 'layerId')) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (!expectString(payload, 'routineId')) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!expectString(payload, 'poolId')) {
+        return 'payload.poolId must be a non-empty string';
+      }
+      return null;
+    },
+    producers: Object.freeze(['RoutineSystem']),
+    consumers: Object.freeze(['progressLayer']),
+    phaseConstraints: Object.freeze([PHASE_CONSTRAINTS.INPUT, PHASE_CONSTRAINTS.LAYER_UPDATE]),
+  }),
+  ROUTINE_STOPPED: Object.freeze({
+    payloadSchema: Object.freeze({
+      layerId: 'string',
+      routineId: 'string',
+      poolId: 'string',
+      stopReason: 'string?',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!expectString(payload, 'layerId')) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (!expectString(payload, 'routineId')) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!expectString(payload, 'poolId')) {
+        return 'payload.poolId must be a non-empty string';
+      }
+      if (!expectOptionalString(payload, 'stopReason')) {
+        return 'payload.stopReason must be a string when provided';
+      }
+      return null;
+    },
+    producers: Object.freeze(['RoutineSystem']),
+    consumers: Object.freeze(['progressLayer']),
+    phaseConstraints: Object.freeze([PHASE_CONSTRAINTS.INPUT, PHASE_CONSTRAINTS.LAYER_UPDATE]),
+  }),
+  ROUTINE_BLOCKED: Object.freeze({
+    payloadSchema: Object.freeze({
+      layerId: 'string',
+      routineId: 'string',
+      poolId: 'string',
+      stopReason: 'string?',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!expectString(payload, 'layerId')) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (!expectString(payload, 'routineId')) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!expectString(payload, 'poolId')) {
+        return 'payload.poolId must be a non-empty string';
+      }
+      if (!expectOptionalString(payload, 'stopReason')) {
+        return 'payload.stopReason must be a string when provided';
+      }
+      return null;
+    },
+    producers: Object.freeze(['RoutineSystem']),
+    consumers: Object.freeze(['progressLayer']),
+    phaseConstraints: Object.freeze([PHASE_CONSTRAINTS.LAYER_UPDATE]),
+  }),
   UNLOCKED: Object.freeze({
     payloadSchema: Object.freeze({
       targetRef: 'string',
