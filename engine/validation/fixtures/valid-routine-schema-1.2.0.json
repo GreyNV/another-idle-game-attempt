@@ -9,12 +9,33 @@
   "state": {
     "resources": {
       "xp": 0
+    },
+    "layers": {
+      "idle": {
+        "routinePools": {
+          "workerSlots": {
+            "total": 1,
+            "used": 0,
+            "activeRoutineId": null
+          }
+        }
+      }
     }
   },
   "layers": [
     {
       "id": "idle",
       "type": "progressLayer",
+      "routineSystem": {
+        "slotPools": {
+          "workerSlots": {
+            "totalPath": "layers.idle.routinePools.workerSlots.total",
+            "usedPath": "layers.idle.routinePools.workerSlots.used",
+            "activeRoutineIdPath": "layers.idle.routinePools.workerSlots.activeRoutineId",
+            "singleActivePerPool": true
+          }
+        }
+      },
       "sublayers": [
         {
           "id": "routines",

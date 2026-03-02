@@ -267,6 +267,67 @@ function validateGameDefinitionSchema(definition) {
       validateUnlockShape(layer.unlock, `${layerPath}/unlock`, issues);
     }
 
+    if (layer.routineSystem !== undefined) {
+      if (!isObject(layer.routineSystem)) {
+        issue(
+          issues,
+          `${layerPath}/routineSystem`,
+          'ROUTINE_SYSTEM_TYPE',
+          'layer.routineSystem must be an object.',
+          'Provide routineSystem.slotPools as an object keyed by pool id.'
+        );
+      } else if (!isObject(layer.routineSystem.slotPools)) {
+        issue(
+          issues,
+          `${layerPath}/routineSystem/slotPools`,
+          'ROUTINE_SLOT_POOLS_REQUIRED',
+          'layer.routineSystem.slotPools must be an object keyed by pool id.',
+          'Define each slot pool with totalPath, usedPath, activeRoutineIdPath, and optional singleActivePerPool.'
+        );
+      } else {
+        for (const [poolId, poolConfig] of Object.entries(layer.routineSystem.slotPools)) {
+          const poolPath = `${layerPath}/routineSystem/slotPools/${poolId}`;
+          if (poolId.trim() === '') {
+            issue(issues, poolPath, 'ROUTINE_SLOT_POOL_ID_REQUIRED', 'slotPools keys must be non-empty strings.', 'Rename this pool id to a non-empty key.');
+            continue;
+          }
+
+          if (!isObject(poolConfig)) {
+            issue(
+              issues,
+              poolPath,
+              'ROUTINE_SLOT_POOL_CONFIG_TYPE',
+              `slotPools.${poolId} must be an object.`,
+              'Provide totalPath, usedPath, activeRoutineIdPath, and optional singleActivePerPool.'
+            );
+            continue;
+          }
+
+          ['totalPath', 'usedPath', 'activeRoutineIdPath'].forEach((field) => {
+            if (typeof poolConfig[field] !== 'string' || poolConfig[field].trim() === '') {
+              issue(
+                issues,
+                `${poolPath}/${field}`,
+                'ROUTINE_SLOT_POOL_PATH_REQUIRED',
+                `slotPools.${poolId}.${field} must be a non-empty string.`,
+                `Set ${field} to a canonical dotted state path.`
+              );
+            }
+          });
+
+          if (poolConfig.singleActivePerPool !== undefined && typeof poolConfig.singleActivePerPool !== 'boolean') {
+            issue(
+              issues,
+              `${poolPath}/singleActivePerPool`,
+              'ROUTINE_SLOT_POOL_SINGLE_ACTIVE_TYPE',
+              `slotPools.${poolId}.singleActivePerPool must be a boolean when provided.`,
+              'Set singleActivePerPool to true or false.'
+            );
+          }
+        }
+      }
+    }
+
     if (layer.reset !== undefined) {
       if (!isObject(layer.reset)) {
         issue(issues, `${layerPath}/reset`, 'RESET_TYPE', 'reset must be an object.', 'Use reset.preview/reset.execute descriptors.');
