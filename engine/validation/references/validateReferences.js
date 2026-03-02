@@ -173,6 +173,48 @@ function validateReferences(definition) {
   const rootState = isObject(definition.state) ? definition.state : {};
   const index = buildNodeIndex(layers);
 
+  const validateRoutinePathArray = (routineId, entries, arrayPath) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+
+    entries.forEach((entry, entryIdx) => {
+      if (!isObject(entry) || typeof entry.path !== 'string' || entry.path.trim() === '') {
+        return;
+      }
+
+      if (!hasStatePath(rootState, entry.path)) {
+        issues.push({
+          code: 'REF_ROUTINE_PATH_MISSING',
+          path: `${arrayPath}/${entryIdx}/path`,
+          message: `Routine "${routineId}" references missing state path "${entry.path}".`,
+          hint: 'Add the state path or update routine path to an existing canonical state path.',
+        });
+      }
+    });
+  };
+
+  const validateSetFlagEffectPath = (routineId, setFlagPath, jsonPath) => {
+    if (!setFlagPath.startsWith('flags.')) {
+      issues.push({
+        code: 'REF_SET_FLAG_PATH_POLICY',
+        path: jsonPath,
+        message: `Routine "${routineId}" setFlag.path "${setFlagPath}" must be under state.flags.`,
+        hint: 'Use a state path prefixed with flags., e.g. flags.someUnlockFlag.',
+      });
+      return;
+    }
+
+    if (!hasStatePath(rootState, setFlagPath)) {
+      issues.push({
+        code: 'REF_SET_FLAG_PATH_MISSING',
+        path: jsonPath,
+        message: `Routine "${routineId}" setFlag.path "${setFlagPath}" does not exist in state.flags.`,
+        hint: 'Create this flag under state.flags or update setFlag.path to an existing flag.',
+      });
+    }
+  };
+
   layers.forEach((layer, layerIdx) => {
     if (!isObject(layer)) {
       return;
@@ -260,6 +302,18 @@ function validateReferences(definition) {
               index,
               issues
             );
+          }
+
+          if (element.type === 'routine') {
+            const routineId = typeof element.id === 'string' && element.id.trim() !== '' ? element.id : `<index:${elementIdx}>`;
+            const routinePath = `/layers/${layerIdx}/sublayers/${subIdx}/sections/${sectionIdx}/elements/${elementIdx}`;
+            validateRoutinePathArray(routineId, element.produces, `${routinePath}/produces`);
+            validateRoutinePathArray(routineId, element.consumes, `${routinePath}/consumes`);
+            validateRoutinePathArray(routineId, element.requires, `${routinePath}/requires`);
+
+            if (isObject(element.effects) && isObject(element.effects.setFlag) && typeof element.effects.setFlag.path === 'string') {
+              validateSetFlagEffectPath(routineId, element.effects.setFlag.path, `${routinePath}/effects/setFlag/path`);
+            }
           }
         });
       });

@@ -5,6 +5,8 @@ const LAYER_TYPES = new Set(['progressLayer']);
 const SUBLAYER_TYPES = new Set(['progress', 'buyable', 'upgrade']);
 const ELEMENT_TYPES = new Set(['progressBar', 'buyable', 'upgrade', 'routine']);
 const SOFTCAP_MODES = new Set(['power']);
+const ROUTINE_KEYS = new Set(['id', 'type', 'slot', 'mode', 'produces', 'consumes', 'requires', 'scaling', 'effects', 'unlock']);
+const ROUTINE_SCALING_KEYS = new Set(['yieldMultiplierKeys', 'speedMultiplierKeys']);
 
 /**
  * @param {unknown} value
@@ -65,6 +67,132 @@ function validateIdsUnique(list, path, issues) {
 
     seen.add(item.id);
   });
+}
+
+function validateRoutineElement(element, elementPath, elementIdx, issues) {
+  const routineId = typeof element.id === 'string' && element.id.trim() !== '' ? element.id : `<index:${elementIdx}>`;
+
+  Object.keys(element).forEach((key) => {
+    if (!ROUTINE_KEYS.has(key)) {
+      issue(
+        issues,
+        `${elementPath}/${key}`,
+        'ROUTINE_UNKNOWN_FIELD',
+        `Routine "${routineId}" contains unknown field "${key}".`,
+        `Remove ${key} or add schema support for it.`
+      );
+    }
+  });
+
+  if (!isObject(element.slot)) {
+    issue(issues, `${elementPath}/slot`, 'ROUTINE_SLOT_REQUIRED', `Routine "${routineId}" requires slot object.`, 'Set slot.poolId and optional slot.cost.');
+  } else {
+    if (typeof element.slot.poolId !== 'string' || element.slot.poolId.trim() === '') {
+      issue(
+        issues,
+        `${elementPath}/slot/poolId`,
+        'ROUTINE_SLOT_POOL_ID_REQUIRED',
+        `Routine "${routineId}" requires slot.poolId to be a non-empty string.`,
+        'Set slot.poolId to a valid slot pool identifier.'
+      );
+    }
+
+    if (element.slot.cost !== undefined) {
+      if (!Number.isInteger(element.slot.cost) || element.slot.cost < 1) {
+        issue(
+          issues,
+          `${elementPath}/slot/cost`,
+          'ROUTINE_SLOT_COST_INVALID',
+          `Routine "${routineId}" requires slot.cost to be an integer >= 1.`,
+          'Use a positive integer slot cost (1 or greater).'
+        );
+      }
+    }
+  }
+
+  if (typeof element.mode !== 'string' || element.mode.trim() === '') {
+    issue(issues, `${elementPath}/mode`, 'ROUTINE_MODE_REQUIRED', `Routine "${routineId}" requires mode to be a non-empty string.`, 'Set mode to a supported routine mode.');
+  }
+
+  const validateRoutineRateList = (entries, listPath) => {
+    if (entries === undefined) {
+      return;
+    }
+
+    if (!Array.isArray(entries)) {
+      issue(
+        issues,
+        listPath,
+        'ROUTINE_ARRAY_TYPE',
+        `Routine "${routineId}" field must be an array.`,
+        'Use an array of path descriptors.'
+      );
+      return;
+    }
+
+    entries.forEach((entry, idx) => {
+      const entryPath = `${listPath}/${idx}`;
+      if (!isObject(entry)) {
+        issue(issues, entryPath, 'ROUTINE_ENTRY_TYPE', `Routine "${routineId}" entries must be objects.`, 'Use { path, perSecond } shape.');
+        return;
+      }
+
+      if (typeof entry.path !== 'string' || entry.path.trim() === '') {
+        issue(
+          issues,
+          `${entryPath}/path`,
+          'ROUTINE_PATH_REQUIRED',
+          `Routine "${routineId}" entries require a non-empty string path.`,
+          'Set path to a canonical dotted state path.'
+        );
+      }
+
+      if (entry.perSecond !== undefined && (typeof entry.perSecond !== 'number' || Number.isNaN(entry.perSecond) || entry.perSecond < 0)) {
+        issue(
+          issues,
+          `${entryPath}/perSecond`,
+          'ROUTINE_PER_SECOND_INVALID',
+          `Routine "${routineId}" requires perSecond >= 0.`,
+          'Set perSecond to 0 or a positive number.'
+        );
+      }
+    });
+  };
+
+  validateRoutineRateList(element.produces, `${elementPath}/produces`);
+  validateRoutineRateList(element.consumes, `${elementPath}/consumes`);
+  validateRoutineRateList(element.requires, `${elementPath}/requires`);
+
+  if (element.scaling !== undefined) {
+    if (!isObject(element.scaling)) {
+      issue(issues, `${elementPath}/scaling`, 'ROUTINE_SCALING_TYPE', `Routine "${routineId}" scaling must be an object.`, 'Provide scaling key arrays or omit scaling.');
+    } else {
+      Object.keys(element.scaling).forEach((key) => {
+        if (!ROUTINE_SCALING_KEYS.has(key)) {
+          issue(
+            issues,
+            `${elementPath}/scaling/${key}`,
+            'ROUTINE_SCALING_UNKNOWN_FIELD',
+            `Routine "${routineId}" scaling contains unknown field "${key}".`,
+            'Use only scaling.yieldMultiplierKeys and scaling.speedMultiplierKeys.'
+          );
+        }
+      });
+
+      ['yieldMultiplierKeys', 'speedMultiplierKeys'].forEach((key) => {
+        const value = element.scaling[key];
+        if (value !== undefined && !Array.isArray(value)) {
+          issue(
+            issues,
+            `${elementPath}/scaling/${key}`,
+            'ROUTINE_SCALING_ARRAY_TYPE',
+            `Routine "${routineId}" scaling.${key} must be an array.`,
+            `Provide scaling.${key} as an array of state keys.`
+          );
+        }
+      });
+    }
+  }
 }
 
 /**
@@ -216,6 +344,8 @@ function validateGameDefinitionSchema(definition) {
           }
 
           if (element.type === 'routine') {
+            validateRoutineElement(element, elementPath, elementIdx, issues);
+
             const versionComparison = compareSchemaVersions(schemaVersion, '1.2.0');
             if (versionComparison !== null && versionComparison < 0) {
               const elementId = typeof element.id === 'string' && element.id.trim() !== '' ? element.id : `<index:${elementIdx}>`;
