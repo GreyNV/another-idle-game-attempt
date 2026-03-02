@@ -41,6 +41,7 @@ class GameEngine {
     this.routineSystem = null;
     this.multiplierCompiler = null;
     this.characteristicSystem = null;
+    this.saveSystem = null;
     this.uiComposer = null;
     this.layerRegistry = options.layerRegistry || new LayerRegistry();
     this.layerInstances = [];
@@ -91,6 +92,7 @@ class GameEngine {
     this.routineSystem = systems.routineSystem;
     this.multiplierCompiler = systems.multiplierCompiler;
     this.characteristicSystem = systems.characteristicSystem;
+    this.saveSystem = systems.saveSystem;
     this.uiComposer = systems.uiComposer;
 
     registerBuiltinLayers(this.layerRegistry);
@@ -252,6 +254,7 @@ class GameEngine {
       modifierResolver: this.modifierResolver,
       multiplierCompiler: this.multiplierCompiler,
       characteristicSystem: this.characteristicSystem,
+      saveSystem: this.saveSystem,
       layerResetService: this.layerResetService,
       intentRouter: this.intentRouter,
       routineSystem: this.routineSystem,
