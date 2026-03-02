@@ -58,7 +58,7 @@ const INTENT_CATALOG = Object.freeze({
       targetRef: 'string?',
       layerId: 'string',
       routineId: 'string',
-      reason: 'string?',
+      poolId: 'string',
     }),
     validatePayload(payload) {
       if (!isPlainObject(payload)) {
@@ -73,8 +73,8 @@ const INTENT_CATALOG = Object.freeze({
       if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
         return 'payload.routineId must be a non-empty string';
       }
-      if (!ensureOptionalString(payload, 'reason')) {
-        return 'payload.reason must be a string when provided';
+      if (typeof payload.poolId !== 'string' || payload.poolId.length === 0) {
+        return 'payload.poolId must be a non-empty string';
       }
       return null;
     },
@@ -86,7 +86,8 @@ const INTENT_CATALOG = Object.freeze({
       targetRef: 'string?',
       layerId: 'string',
       routineId: 'string',
-      reason: 'string?',
+      poolId: 'string',
+      stopReason: 'string?',
     }),
     validatePayload(payload) {
       if (!isPlainObject(payload)) {
@@ -101,8 +102,11 @@ const INTENT_CATALOG = Object.freeze({
       if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
         return 'payload.routineId must be a non-empty string';
       }
-      if (!ensureOptionalString(payload, 'reason')) {
-        return 'payload.reason must be a string when provided';
+      if (typeof payload.poolId !== 'string' || payload.poolId.length === 0) {
+        return 'payload.poolId must be a non-empty string';
+      }
+      if (!ensureOptionalString(payload, 'stopReason')) {
+        return 'payload.stopReason must be a string when provided';
       }
       return null;
     },
@@ -114,7 +118,8 @@ const INTENT_CATALOG = Object.freeze({
       targetRef: 'string?',
       layerId: 'string',
       routineId: 'string',
-      reason: 'string?',
+      poolId: 'string',
+      stopReason: 'string?',
     }),
     validatePayload(payload) {
       if (!isPlainObject(payload)) {
@@ -129,8 +134,11 @@ const INTENT_CATALOG = Object.freeze({
       if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
         return 'payload.routineId must be a non-empty string';
       }
-      if (!ensureOptionalString(payload, 'reason')) {
-        return 'payload.reason must be a string when provided';
+      if (typeof payload.poolId !== 'string' || payload.poolId.length === 0) {
+        return 'payload.poolId must be a non-empty string';
+      }
+      if (!ensureOptionalString(payload, 'stopReason')) {
+        return 'payload.stopReason must be a string when provided';
       }
       return null;
     },
