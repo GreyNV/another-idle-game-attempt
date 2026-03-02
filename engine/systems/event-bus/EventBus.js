@@ -1,5 +1,9 @@
 const { getEventCatalogEntry } = require('../catalogs/eventCatalog');
 
+/** @typedef {import('../../core/contracts/EventBusContract').EventBusContract} EventBusContract */
+/** @typedef {import('../../core/contracts/EventBusContract').RuntimeEvent} RuntimeEvent */
+
+/** @implements {EventBusContract} */
 class EventBus {
   constructor(options = {}) {
     this.strictValidation = Boolean(options.strictValidation);
@@ -147,7 +151,8 @@ class EventBus {
       throw new Error('event.type must be a non-empty string');
     }
 
-    return {
+    /** @type {RuntimeEvent} */
+    const normalizedEvent = {
       type: event.type,
       payload: event.payload || {},
       ts: event.ts || 0,
@@ -155,6 +160,8 @@ class EventBus {
       phase: event.phase || this.allowedPhase || null,
       meta: event.meta || {},
     };
+
+    return normalizedEvent;
   }
 
   #validateAgainstCatalog(event) {

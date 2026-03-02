@@ -1,3 +1,5 @@
+/** @typedef {import('../../core/contracts/StateStoreContract').StateStoreContract} StateStoreContract */
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -81,6 +83,7 @@ function patchPath(root, path, partial) {
   writePath(root, path, next);
 }
 
+/** @implements {StateStoreContract} */
 class StateStore {
   constructor(initialState = {}) {
     this.canonicalState = deepClone(initialState);

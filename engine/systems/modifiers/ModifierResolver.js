@@ -1,6 +1,9 @@
 const { normalizeNodeRef } = require('../unlocks/nodeRef');
 const { applySoftcap } = require('./applySoftcap');
 
+/** @typedef {import('../../core/contracts/ModifierResolverContract').ModifierResolverContract} ModifierResolverContract */
+
+/** @implements {ModifierResolverContract} */
 class ModifierResolver {
   constructor(options = {}) {
     this.definition = options.definition || { layers: [] };

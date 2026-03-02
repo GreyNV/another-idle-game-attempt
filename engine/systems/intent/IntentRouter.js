@@ -1,5 +1,8 @@
 const { getIntentCatalogEntry, LOCK_CHECK_POLICIES } = require('../catalogs/intentCatalog');
 
+/** @typedef {import('../../core/contracts/IntentRouterContract').IntentRouterContract} IntentRouterContract */
+
+/** @implements {IntentRouterContract} */
 class IntentRouter {
   constructor(options = {}) {
     this.strictValidation = options.strictValidation !== false;

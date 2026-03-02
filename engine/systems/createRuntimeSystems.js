@@ -12,6 +12,12 @@ const { SaveSystem } = require('./save/SaveSystem');
 const { DEFAULT_COMPATIBILITY_POLICY } = require('../validation/schema/schemaVersionPolicy');
 const { UIComposer } = require('../ui/UIComposer');
 
+/** @typedef {import('../core/contracts/EventBusContract').EventBusContract} EventBusContract */
+/** @typedef {import('../core/contracts/StateStoreContract').StateStoreContract} StateStoreContract */
+/** @typedef {import('../core/contracts/IntentRouterContract').IntentRouterContract} IntentRouterContract */
+/** @typedef {import('../core/contracts/UnlockEvaluatorContract').UnlockEvaluatorContract} UnlockEvaluatorContract */
+/** @typedef {import('../core/contracts/ModifierResolverContract').ModifierResolverContract} ModifierResolverContract */
+
 function createRuntimeSystems(options = {}) {
   const strictValidation = options.devModeStrict !== false;
   const definition = options.definition || { state: {}, layers: [] };
@@ -20,6 +26,7 @@ function createRuntimeSystems(options = {}) {
     (definition && definition.meta && definition.meta.schemaVersion) ||
     `${schemaVersionPolicy.supportedMajor}.${schemaVersionPolicy.minimumMinor}.0`;
 
+  /** @type {EventBusContract} */
   const eventBus =
     options.eventBus ||
     new EventBus({
@@ -27,8 +34,10 @@ function createRuntimeSystems(options = {}) {
       maxEventsPerTick: options.maxEventsPerTick,
       maxDispatchCyclesPerTick: options.maxDispatchCyclesPerTick,
     });
+  /** @type {StateStoreContract} */
   const stateStore = options.stateStore || new StateStore(definition.state || {});
   const timeSystem = options.timeSystem || new TimeSystem();
+  /** @type {ModifierResolverContract} */
   const modifierResolver = options.modifierResolver || new ModifierResolver({ definition });
   const multiplierCompiler = options.multiplierCompiler || new MultiplierCompiler({ stateStore });
   const characteristicSystem =
@@ -52,6 +61,7 @@ function createRuntimeSystems(options = {}) {
     );
   }
 
+  /** @type {IntentRouterContract} */
   const intentRouter =
     options.intentRouter ||
     new IntentRouter({
@@ -69,6 +79,7 @@ function createRuntimeSystems(options = {}) {
       eventBus,
     });
 
+  /** @type {UnlockEvaluatorContract} */
   const unlockEvaluator =
     options.unlockEvaluator ||
     new UnlockEvaluator({

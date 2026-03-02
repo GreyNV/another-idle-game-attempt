@@ -22,7 +22,7 @@ This document binds Section 12 deliverables from `engine_blueprint_v_1.md` to th
 
 1. **Layer contract interface**
    - Module: `engine/core/contracts/BaseLayer.js`
-   - Exported symbol: `BaseLayer`
+   - Exported symbols: `BASE_LAYER_CONTRACT`, `REQUIRED_LAYER_METHODS`, `assertValidBaseLayerInstance`
 
 2. **EventBus (same-tick dispatch + subscriber snapshot)**
    - Module: `engine/systems/event-bus/EventBus.js`
@@ -75,6 +75,15 @@ This document binds Section 12 deliverables from `engine_blueprint_v_1.md` to th
    - Module: `engine/systems/save/SaveSystem.js`
    - Exported symbol: `SaveSystem`
    - Runtime composition: `engine/systems/createRuntimeSystems.js` → `createRuntimeSystems` returns `saveSystem`
+
+
+14. **Runtime service contracts (JSDoc typedef surfaces)**
+   - Modules:
+     - `engine/core/contracts/EventBusContract.js` → `EVENT_BUS_CONTRACT`, `EventBusContract` typedef
+     - `engine/core/contracts/StateStoreContract.js` → `STATE_STORE_CONTRACT`, `StateStoreContract` typedef
+     - `engine/core/contracts/IntentRouterContract.js` → `INTENT_ROUTER_CONTRACT`, `IntentRouterContract` typedef
+     - `engine/core/contracts/UnlockEvaluatorContract.js` → `UNLOCK_EVALUATOR_CONTRACT`, `UnlockEvaluatorContract` typedef
+     - `engine/core/contracts/ModifierResolverContract.js` → `MODIFIER_RESOLVER_CONTRACT`, `ModifierResolverContract` typedef
 
 ---
 
