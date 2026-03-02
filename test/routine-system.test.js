@@ -248,12 +248,96 @@ function runUiIntegrationRoutineViewCase() {
   });
 }
 
+function runRoutineApplyOrderFollowsDefinitionOrderCase() {
+  const definition = {
+    state: {
+      resources: {
+        energy: 1,
+      },
+      layers: {
+        idle: {
+          routinePools: {
+            firstPool: { total: 1, used: 0, activeRoutine: null },
+            secondPool: { total: 1, used: 0, activeRoutine: null },
+          },
+          routines: {
+            zeta: { active: false },
+            alpha: { active: false },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        routineSystem: {
+          slotPools: {
+            firstPool: {
+              totalPath: 'layers.idle.routinePools.firstPool.total',
+              usedPath: 'layers.idle.routinePools.firstPool.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.firstPool.activeRoutine',
+              singleActivePerPool: true,
+            },
+            secondPool: {
+              totalPath: 'layers.idle.routinePools.secondPool.total',
+              usedPath: 'layers.idle.routinePools.secondPool.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.secondPool.activeRoutine',
+              singleActivePerPool: true,
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'routines',
+            sections: [
+              {
+                id: 'order-check',
+                elements: [
+                  {
+                    id: 'zeta',
+                    type: 'routine',
+                    slot: { poolId: 'firstPool' },
+                    mode: 'manual',
+                    consumes: [{ path: 'resources.energy', perSecond: 1 }],
+                    requires: [{ path: 'resources.energy', perSecond: 0 }],
+                  },
+                  {
+                    id: 'alpha',
+                    type: 'routine',
+                    slot: { poolId: 'secondPool' },
+                    mode: 'manual',
+                    consumes: [{ path: 'resources.energy', perSecond: 1 }],
+                    requires: [{ path: 'resources.energy', perSecond: 0 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const { routineSystem, stateStore } = createRuntimeSystems({ definition, devModeStrict: false });
+
+  routineSystem.handleIntent('ROUTINE_START', { layerId: 'idle', routineId: 'zeta' });
+  routineSystem.handleIntent('ROUTINE_START', { layerId: 'idle', routineId: 'alpha' });
+
+  const report = routineSystem.update(1);
+  assert.deepStrictEqual(report.stoppedBeforeDelta, ['idle/alpha']);
+  assert.strictEqual(stateStore.get('resources.energy'), 0);
+  assert.strictEqual(stateStore.get('layers.idle.routines.zeta.active'), true);
+  assert.strictEqual(stateStore.get('layers.idle.routines.alpha.active'), false);
+}
+
 function run() {
   runRoutineIntentPerPoolCase();
   runSimultaneousCrossPoolCase();
   runSamePoolReplacementSingleTickCase();
   runUnderflowAutoStopCase();
   runUiIntegrationRoutineViewCase();
+  runRoutineApplyOrderFollowsDefinitionOrderCase();
   console.log('routine system tests passed');
 }
 
