@@ -35,17 +35,30 @@ class UIComposer {
       return (nodeRef) => this.#normalizeUnlockStatus(options.getUnlockStatus(nodeRef));
     }
 
+    const unlockState = options.unlockState;
+    const fallbackGetter = this.#resolveLegacyUnlockStatusGetter(options, unlockState);
+
+    if (unlockState && unlockState.statusByRef && typeof unlockState.statusByRef === 'object') {
+      return (nodeRef) => {
+        const status = unlockState.statusByRef[nodeRef];
+        if (status && typeof status === 'object') {
+          return this.#normalizeUnlockStatus(status);
+        }
+
+        return fallbackGetter(nodeRef);
+      };
+    }
+
+    return fallbackGetter;
+  }
+
+  #resolveLegacyUnlockStatusGetter(options, unlockState) {
     if (typeof options.isUnlocked === 'function') {
       return (nodeRef) => this.#normalizeUnlockStatus({ unlocked: options.isUnlocked(nodeRef) });
     }
 
-    const unlockState = options.unlockState;
     if (!unlockState) {
       return () => this.#normalizeUnlockStatus({ unlocked: true });
-    }
-
-    if (unlockState.statusByRef && typeof unlockState.statusByRef === 'object') {
-      return (nodeRef) => this.#normalizeUnlockStatus(unlockState.statusByRef[nodeRef]);
     }
 
     if (Array.isArray(unlockState.unlockedRefs)) {

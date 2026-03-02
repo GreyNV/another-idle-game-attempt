@@ -104,6 +104,27 @@ function runUIComposerCase() {
   assert.strictEqual(elements[1].unlockProgress, 0.6);
   assert.strictEqual(elements[1].title, 'woodcut-upgrade');
 
+
+  const statusPrecedenceTree = composer.compose(validDefinition, {
+    unlockState: {
+      statusByRef: {
+        'layer:idle/sublayer:routines/section:jobs/element:woodcut-upgrade': {
+          unlocked: false,
+          progress: 0.4,
+          showPlaceholder: true,
+        },
+      },
+    },
+    isUnlocked(nodeRef) {
+      return nodeRef !== 'layer:idle/sublayer:routines/section:jobs/element:woodcut-upgrade';
+    },
+  });
+
+  const precedenceElements = statusPrecedenceTree.layers[0].sublayers[0].sections[0].elements;
+  assert.strictEqual(precedenceElements.length, 2);
+  assert.strictEqual(precedenceElements[1].placeholder, true);
+  assert.strictEqual(precedenceElements[1].unlockProgress, 0.4);
+
   const parentLockedTree = composer.compose(validDefinition, {
     getUnlockStatus(nodeRef) {
       if (nodeRef === 'layer:idle/sublayer:routines') {
