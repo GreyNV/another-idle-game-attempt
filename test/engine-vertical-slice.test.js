@@ -13,7 +13,7 @@ function buildMinimalDefinition() {
     },
     state: {
       resources: {
-        xp: 0,
+        xp: 1,
       },
     },
     layers: [
@@ -42,7 +42,7 @@ function buildMinimalDefinition() {
                     unlock: {
                       resourceGte: {
                         path: 'resources.xp',
-                        value: 1,
+                        value: 2,
                       },
                     },
                   },
@@ -92,20 +92,26 @@ function runVerticalSliceCase() {
   const tickOneElements = tickOne.ui.layers[0].sublayers[0].sections[0].elements;
   assert.deepStrictEqual(
     tickOneElements.map((element) => element.id),
-    ['always-on'],
-    'UI should hide xp-gated element while locked'
+    ['always-on', 'xp-gated'],
+    'UI should include xp-gated placeholder when unlock condition is partially met'
   );
+  const xpGatedPlaceholder = tickOneElements.find((element) => element.id === 'xp-gated');
+  assert.strictEqual(xpGatedPlaceholder.placeholder, true, 'xp-gated should render as a placeholder while still locked');
+  assert.ok(xpGatedPlaceholder.unlockProgress > 0 && xpGatedPlaceholder.unlockProgress < 1, 'placeholder should include progress toward unlock');
 
-  engine.stateStore.set('resources.xp', 1);
+  engine.stateStore.set('resources.xp', 2);
   const tickTwo = engine.tick();
 
-  assert.ok(tickTwo.unlocks.transitions.includes(xpGatedRef), 'xp-gated element should transition to unlocked at xp=1');
+  assert.ok(tickTwo.unlocks.transitions.includes(xpGatedRef), 'xp-gated element should transition to unlocked at xp=2');
   const tickTwoElements = tickTwo.ui.layers[0].sublayers[0].sections[0].elements;
   assert.deepStrictEqual(
     tickTwoElements.map((element) => element.id),
     ['always-on', 'xp-gated'],
     'UI should include xp-gated element after unlock transition'
   );
+  const unlockedXpGated = tickTwoElements.find((element) => element.id === 'xp-gated');
+  assert.strictEqual(unlockedXpGated.placeholder, false, 'xp-gated should no longer be a placeholder after unlock');
+  assert.strictEqual(unlockedXpGated.unlockProgress, 1, 'unlocked node should report full progress');
   const tickThree = engine.tick();
   assert.ok(tickThree.dispatchedHandlers >= 1, 'third tick should drain queued UNLOCKED events');
   assert.ok(unlockedEvents.includes(xpGatedRef), 'UNLOCKED event should emit for xp-gated transition');

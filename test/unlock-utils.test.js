@@ -4,6 +4,7 @@ const { parseNodeRef, normalizeNodeRef } = require('../engine/systems/unlocks/no
 const {
   parseUnlockCondition,
   evaluateUnlockCondition,
+  evaluateUnlockProgress,
   evaluateUnlockTransition,
 } = require('../engine/systems/unlocks/unlockCondition');
 
@@ -104,6 +105,12 @@ function runUnlockEvaluationCases() {
 
   const result = evaluateUnlockCondition(parsed.value, state);
   assert.strictEqual(result, true, 'mixed AST should evaluate to true');
+
+
+  const progressParsed = parseUnlockCondition({ resourceGte: { path: 'resources.xp', value: 200 } });
+  assert.strictEqual(progressParsed.ok, true, 'progress condition should parse');
+  const progressValue = evaluateUnlockProgress(progressParsed.value, state);
+  assert.strictEqual(progressValue, 0.6, 'resource progress should reflect partial unlock completion');
 
   const missingPathParsed = parseUnlockCondition({ flag: { path: 'flags.nonexistent' } });
   assert.strictEqual(missingPathParsed.ok, true, 'missing path flag should parse');

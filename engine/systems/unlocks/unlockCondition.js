@@ -147,6 +147,105 @@ function evaluateUnlockCondition(ast, state) {
   return false;
 }
 
+function clamp01(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value <= 0) {
+    return 0;
+  }
+
+  if (value >= 1) {
+    return 1;
+  }
+
+  return value;
+}
+
+function evaluateUnlockProgress(ast, state) {
+  if (ast.type === 'always') {
+    return ast.value ? 1 : 0;
+  }
+
+  if (ast.type === 'resourceGte') {
+    const read = readPath(state, ast.path);
+    if (!read.exists || typeof read.value !== 'number') {
+      return 0;
+    }
+
+    if (ast.value <= 0) {
+      return 1;
+    }
+
+    return clamp01(read.value / ast.value);
+  }
+
+  if (ast.type === 'compare') {
+    const read = readPath(state, ast.path);
+    if (!read.exists || typeof read.value !== 'number') {
+      return 0;
+    }
+
+    if (ast.op === 'eq') {
+      return read.value === ast.value ? 1 : 0;
+    }
+
+    if (ast.op === 'neq') {
+      return read.value !== ast.value ? 1 : 0;
+    }
+
+    if (ast.op === 'gt' || ast.op === 'gte') {
+      const threshold = ast.op === 'gt' ? ast.value + Number.EPSILON : ast.value;
+      if (threshold <= 0) {
+        return read.value > 0 ? 1 : 0;
+      }
+      return clamp01(read.value / threshold);
+    }
+
+    if (ast.op === 'lt' || ast.op === 'lte') {
+      const threshold = ast.op === 'lt' ? ast.value - Number.EPSILON : ast.value;
+      if (threshold <= 0) {
+        return read.value <= threshold ? 1 : 0;
+      }
+      if (read.value <= threshold) {
+        return 1;
+      }
+
+      const overage = read.value - threshold;
+      return clamp01(1 - overage / threshold);
+    }
+  }
+
+  if (ast.type === 'flag') {
+    return evaluateUnlockCondition(ast, state) ? 1 : 0;
+  }
+
+  if (ast.type === 'all') {
+    const childProgress = ast.children.map((child) => evaluateUnlockProgress(child, state));
+    if (childProgress.length === 0) {
+      return 0;
+    }
+
+    return Math.min(...childProgress);
+  }
+
+  if (ast.type === 'any') {
+    const childProgress = ast.children.map((child) => evaluateUnlockProgress(child, state));
+    if (childProgress.length === 0) {
+      return 0;
+    }
+
+    return Math.max(...childProgress);
+  }
+
+  if (ast.type === 'not') {
+    return 1 - evaluateUnlockProgress(ast.child, state);
+  }
+
+  return 0;
+}
+
 /**
  * @param {{ wasUnlocked: boolean, ast: any, state: Record<string, unknown>, phase: string }} input
  */
@@ -170,5 +269,6 @@ module.exports = {
   COMPARISON_OPS,
   parseUnlockCondition,
   evaluateUnlockCondition,
+  evaluateUnlockProgress,
   evaluateUnlockTransition,
 };

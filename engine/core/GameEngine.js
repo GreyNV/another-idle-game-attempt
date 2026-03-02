@@ -54,6 +54,7 @@ class GameEngine {
         : (context) =>
             this.uiComposer.compose(context.definition, {
               isUnlocked: (ref) => this.#isUnlockedRef(ref, context.summary.unlocks),
+              getUnlockStatus: (ref) => this.#getUnlockStatus(ref, context.summary.unlocks),
             });
 
     this.intentQueue = [];
@@ -320,6 +321,23 @@ class GameEngine {
     }
 
     return `${layerStatePath}.${pathSuffix}`;
+  }
+
+
+  #getUnlockStatus(nodeRef, unlockSummary) {
+    if (!unlockSummary || !unlockSummary.statusByRef) {
+      return {
+        unlocked: this.#isUnlockedRef(nodeRef, unlockSummary),
+        progress: this.#isUnlockedRef(nodeRef, unlockSummary) ? 1 : 0,
+        showPlaceholder: false,
+      };
+    }
+
+    return unlockSummary.statusByRef[nodeRef] || {
+      unlocked: false,
+      progress: 0,
+      showPlaceholder: false,
+    };
   }
 
   #isUnlockedRef(nodeRef, unlockSummary) {

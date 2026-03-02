@@ -1,5 +1,5 @@
 const { formatNodeRef } = require('./nodeRef');
-const { parseUnlockCondition, evaluateUnlockTransition } = require('./unlockCondition');
+const { parseUnlockCondition, evaluateUnlockTransition, evaluateUnlockProgress } = require('./unlockCondition');
 
 class UnlockEvaluator {
   constructor(options = {}) {
@@ -15,6 +15,7 @@ class UnlockEvaluator {
     const state = this.stateStore.snapshot().canonical;
     const unlockedRefs = [];
     const unlocked = {};
+    const statusByRef = {};
     const transitions = [];
 
     for (const target of this.targets) {
@@ -27,6 +28,13 @@ class UnlockEvaluator {
 
       this.unlockedByRef.set(target.ref, transition.unlocked);
       unlocked[target.ref] = transition.unlocked;
+
+      const progress = evaluateUnlockProgress(target.ast, state);
+      statusByRef[target.ref] = {
+        unlocked: transition.unlocked,
+        progress,
+        showPlaceholder: !transition.unlocked && progress > 0,
+      };
 
       if (transition.unlocked) {
         unlockedRefs.push(target.ref);
@@ -47,6 +55,7 @@ class UnlockEvaluator {
     return {
       unlockedRefs,
       unlocked,
+      statusByRef,
       transitions,
     };
   }
