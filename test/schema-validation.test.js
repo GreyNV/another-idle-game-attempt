@@ -6,6 +6,7 @@ const { parseGameDefinition, ValidationError } = require('../engine/validation')
 const { GameEngine } = require('../engine/core/GameEngine');
 const { EventBus } = require('../engine/systems/event-bus/EventBus');
 const { IntentRouter } = require('../engine/systems/intent/IntentRouter');
+const { compareSchemaVersions } = require('../engine/validation/schema/schemaVersionPolicy');
 
 function loadFixture(name) {
   return JSON.parse(
@@ -107,6 +108,33 @@ function runCatalogValidationChecks() {
 }
 
 
+
+function runSchemaVersionComparisonChecks() {
+  assert.strictEqual(compareSchemaVersions('1.0', '1.0.0'), 0);
+  assert.strictEqual(compareSchemaVersions('1.1.9', '1.2.0') < 0, true);
+  assert.strictEqual(compareSchemaVersions('1.2.0', '1.1.9') > 0, true);
+  assert.strictEqual(compareSchemaVersions('1.2.0', '1.2.0'), 0);
+}
+
+function runRoutineSchemaGateChecks() {
+  const validRoutine = loadFixture('valid-routine-schema-1.2.0.json');
+  const parsed = parseGameDefinition(validRoutine);
+  assert.strictEqual(parsed.meta.gameId, 'idle-routine-valid');
+
+  let caught = null;
+  try {
+    parseGameDefinition(loadFixture('invalid-routine-schema-1.0.0.json'));
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'invalid-routine-schema-1.0.0.json should fail schema validation');
+  const routineIssue = caught.issues.find((entry) => entry.code === 'ELEMENT_ROUTINE_REQUIRES_SCHEMA_1_2_0');
+  assert(routineIssue, 'Expected ELEMENT_ROUTINE_REQUIRES_SCHEMA_1_2_0 issue');
+  assert.match(routineIssue.message, /woodcut-routine/);
+  assert.match(routineIssue.hint, /1.2.0/);
+}
+
 function runSoftcapModeAlignmentCheck() {
   const fixture = loadFixture('invalid-softcap-mode.json');
   assert.strictEqual(fixture.layers[0].softcaps[0].mode, 'log');
@@ -137,6 +165,8 @@ function run() {
   expectInvalid('invalid-systems-array.json', 'SYSTEMS_SHAPE_MIGRATED', '/systems');
   expectInvalid('invalid-softcap-mode.json', 'SOFTCAP_MODE_ENUM', '/softcaps/0/mode');
   runSoftcapModeAlignmentCheck();
+  runSchemaVersionComparisonChecks();
+  runRoutineSchemaGateChecks();
 
   const engine = new GameEngine();
   engine.initialize(valid);

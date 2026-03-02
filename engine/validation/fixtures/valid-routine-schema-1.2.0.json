@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "schemaVersion": "1.2.0",
+    "gameId": "idle-routine-valid"
+  },
+  "systems": {
+    "tickMs": 100
+  },
+  "state": {
+    "resources": {
+      "xp": 0
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "sublayers": [
+        {
+          "id": "routines",
+          "type": "progress",
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": [
+                {
+                  "id": "woodcut-routine",
+                  "type": "routine",
+                  "unlock": {
+                    "always": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

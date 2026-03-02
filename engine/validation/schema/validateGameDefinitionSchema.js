@@ -1,9 +1,9 @@
-const { validateSchemaVersion } = require('./schemaVersionPolicy');
+const { compareSchemaVersions, validateSchemaVersion } = require('./schemaVersionPolicy');
 const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition');
 
 const LAYER_TYPES = new Set(['progressLayer']);
 const SUBLAYER_TYPES = new Set(['progress', 'buyable', 'upgrade']);
-const ELEMENT_TYPES = new Set(['progressBar', 'buyable', 'upgrade']);
+const ELEMENT_TYPES = new Set(['progressBar', 'buyable', 'upgrade', 'routine']);
 const SOFTCAP_MODES = new Set(['power']);
 
 /**
@@ -73,6 +73,7 @@ function validateIdsUnique(list, path, issues) {
  */
 function validateGameDefinitionSchema(definition) {
   const issues = [];
+  let schemaVersion = null;
 
   if (!isObject(definition)) {
     issue(issues, '/', 'ROOT_TYPE', 'Game definition root must be an object.', 'Wrap definition in a root JSON object.');
@@ -84,6 +85,7 @@ function validateGameDefinitionSchema(definition) {
   if (!isObject(meta)) {
     issue(issues, '/meta', 'META_REQUIRED', 'meta is required and must be an object.', 'Add a meta object with schemaVersion and gameId.');
   } else {
+    schemaVersion = meta.schemaVersion;
     issues.push(...validateSchemaVersion(meta.schemaVersion));
 
     if (typeof meta.gameId !== 'string' || meta.gameId.trim() === '') {
@@ -211,6 +213,20 @@ function validateGameDefinitionSchema(definition) {
 
           if (typeof element.type !== 'string' || !ELEMENT_TYPES.has(element.type)) {
             issue(issues, `${elementPath}/type`, 'ELEMENT_TYPE_ENUM', `Element type must be one of: ${Array.from(ELEMENT_TYPES).join(', ')}.`, 'Use a supported element type.');
+          }
+
+          if (element.type === 'routine') {
+            const versionComparison = compareSchemaVersions(schemaVersion, '1.2.0');
+            if (versionComparison !== null && versionComparison < 0) {
+              const elementId = typeof element.id === 'string' && element.id.trim() !== '' ? element.id : `<index:${elementIdx}>`;
+              issue(
+                issues,
+                `${elementPath}/type`,
+                'ELEMENT_ROUTINE_REQUIRES_SCHEMA_1_2_0',
+                `Element "${elementId}" uses type "routine", which requires schemaVersion >= 1.2.0 (found "${schemaVersion}").`,
+                `Update meta.schemaVersion to "1.2.0" or newer, or change element "${elementId}" to a type supported by schema ${schemaVersion}.`
+              );
+            }
           }
 
           if (element.unlock !== undefined) {
