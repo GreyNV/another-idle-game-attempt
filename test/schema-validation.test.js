@@ -2,8 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const { parseGameDefinition, ValidationError } = require('../engine/validation');
-const { GameEngine } = require('../engine/core/GameEngine');
+const { GameEngine, parseGameDefinition, ValidationError } = require('../engine');
 const { EventBus } = require('../engine/systems/event-bus/EventBus');
 const { IntentRouter } = require('../engine/systems/intent/IntentRouter');
 const { compareSchemaVersions } = require('../engine/validation/schema/schemaVersionPolicy');

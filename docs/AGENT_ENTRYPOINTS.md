@@ -27,6 +27,9 @@ This file is the fast-start map for implementation agents working on the determi
 
 ## Entrypoints by task
 
+- **Stable external API surface:** `engine/index.js` (only this module is semver-stable for external callers/tests).
+- **Internal implementation modules:** everything else under `engine/**` is non-stable unless re-exported by `engine/index.js`.
+
 - **Tick-loop ordering/invariants:** `engine/core/GameEngine.js`
 - **Runtime wiring/composition root:** `engine/systems/createRuntimeSystems.js`
 - **Queueing/deterministic event semantics:** `engine/systems/event-bus/EventBus.js`
