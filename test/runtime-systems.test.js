@@ -231,7 +231,7 @@ function runRoutineElementViewModelCase() {
     payload: { layerId: 'idle', routineId: 'chop', poolId: 'jobs' },
   });
 
-  const systems = createRuntimeSystems({ definition, devModeStrict: true });
+  const systems = createRuntimeSystems({ definition, devModeStrict: true, isNodeLocked: () => false });
   systems.intentRouter.register('ROUTINE_TOGGLE', (intent) =>
     systems.routineSystem.handleIntent(intent.type, intent.payload)
   );
@@ -337,6 +337,22 @@ function runCharacteristicAndMultiplierCase() {
   assert.strictEqual(routineResult.applied[0].multipliers.speedMultiplier, 2.25);
 }
 
+function runIntentRouterLockInjectionCase() {
+  const validDefinition = loadFixture('valid-definition.json');
+  assert.throws(
+    () => createRuntimeSystems({ definition: validDefinition, devModeStrict: true }),
+    /requires an explicit isNodeLocked callback/
+  );
+
+  const systems = createRuntimeSystems({
+    definition: validDefinition,
+    devModeStrict: true,
+    isNodeLocked: () => false,
+  });
+
+  assert.strictEqual(typeof systems.intentRouter.isNodeLocked, 'function');
+}
+
 function run() {
   runStateStoreCase();
   runTimeSystemCase();
@@ -346,6 +362,7 @@ function run() {
   runRoutineElementViewModelCase();
   runGameEngineWiringCase();
   runCharacteristicAndMultiplierCase();
+  runIntentRouterLockInjectionCase();
   console.log('runtime systems tests passed');
 }
 

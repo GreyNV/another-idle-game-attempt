@@ -3,6 +3,7 @@ const { createRuntimeSystems } = require('../systems/createRuntimeSystems');
 const { LayerRegistry } = require('../plugins/LayerRegistry');
 const { registerBuiltinLayers } = require('../plugins/layers/registerBuiltinLayers');
 const { EVENT_CATALOG } = require('../systems/catalogs/eventCatalog');
+const { evaluateUnlockCondition, evaluateUnlockProgress } = require('../systems/unlocks/unlockCondition');
 
 const ENGINE_PHASES = Object.freeze({
   INPUT: 'input',
@@ -61,6 +62,7 @@ class GameEngine {
 
     this.intentQueue = [];
     this.lastTickSummary = null;
+    this.latestUnlockSummary = null;
     this.currentPhase = null;
     this.phaseCursor = -1;
   }
@@ -76,6 +78,7 @@ class GameEngine {
       ...this.runtimeOptions,
       devModeStrict: this.devModeStrict,
       definition: this.definition,
+      isNodeLocked: (nodeRef) => this.#isNodeLockedRef(nodeRef),
     });
 
     this.eventBus = systems.eventBus;
@@ -95,6 +98,7 @@ class GameEngine {
 
     this.#wireRuntimeSystems();
     this.#wireLayerEventSubscriptions();
+    this.#bootstrapUnlockSnapshot();
     this.initialized = true;
   }
 
@@ -120,6 +124,7 @@ class GameEngine {
 
     this.initialized = false;
     this.definition = null;
+    this.latestUnlockSummary = null;
   }
 
   /**
@@ -255,9 +260,43 @@ class GameEngine {
 
   #runUnlockEvaluationPhase(summary) {
     const unlockSummary = this.unlockEvaluator.evaluateAll({ phase: 'end-of-tick' });
+    this.latestUnlockSummary = unlockSummary;
     this.stateStore.setDerived('unlocks', unlockSummary);
     this.onUnlockEvaluation(this.#buildPhaseContext({ ...summary, unlocks: unlockSummary }), unlockSummary);
     return unlockSummary;
+  }
+
+  #bootstrapUnlockSnapshot() {
+    // Bootstrap lock policy: before the first tick input phase, intent routing uses this
+    // deterministic unlock snapshot so lock checks are never resolved by implicit defaults.
+    // Transition events are suppressed during bootstrap; runtime UNLOCKED transitions stay tick-driven.
+    const state = this.stateStore.snapshot().canonical;
+    const unlockedRefs = [];
+    const unlocked = {};
+    const statusByRef = {};
+
+    for (const target of this.unlockEvaluator.targets || []) {
+      const isUnlocked = evaluateUnlockCondition(target.ast, state);
+      const progress = evaluateUnlockProgress(target.ast, state);
+      unlocked[target.ref] = isUnlocked;
+      statusByRef[target.ref] = {
+        unlocked: isUnlocked,
+        progress,
+        showPlaceholder: !isUnlocked && progress > 0,
+      };
+
+      if (isUnlocked) {
+        unlockedRefs.push(target.ref);
+      }
+    }
+
+    this.latestUnlockSummary = {
+      unlockedRefs,
+      unlocked,
+      statusByRef,
+      transitions: [],
+    };
+    this.stateStore.setDerived('unlocks', this.latestUnlockSummary);
   }
 
   #wireRuntimeSystems() {
@@ -354,6 +393,12 @@ class GameEngine {
 
   #isUnlockedRef(nodeRef, unlockSummary) {
     return this.#getUnlockStatusRef(nodeRef, unlockSummary).unlocked;
+  }
+
+  #isNodeLockedRef(nodeRef) {
+    const summaryFromState = this.stateStore && this.stateStore.get('derived.unlocks');
+    const unlockSummary = this.latestUnlockSummary || summaryFromState;
+    return this.#isUnlockedRef(nodeRef, unlockSummary) !== true;
   }
 
   #getUnlockStatusRef(nodeRef, unlockSummary) {

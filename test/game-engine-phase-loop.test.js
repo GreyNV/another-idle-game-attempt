@@ -57,11 +57,10 @@ function runPhaseOrderAndLayerOrderCase() {
 
 function runUnlockEvaluatorDefaultCase() {
   const validDefinition = loadFixture('valid-definition.json');
-  let evaluateCalls = 0;
+  const evaluatePhases = [];
   const unlockEvaluator = {
     evaluateAll(options) {
-      evaluateCalls += 1;
-      assert.deepStrictEqual(options, { phase: 'end-of-tick' });
+      evaluatePhases.push(options.phase);
       return {
         unlockedRefs: ['layer:idle'],
         unlocked: { 'layer:idle': true },
@@ -79,7 +78,7 @@ function runUnlockEvaluatorDefaultCase() {
   engine.initialize(validDefinition);
   const summary = engine.tick();
 
-  assert.strictEqual(evaluateCalls, 1, 'tick should always use unlockEvaluator by default in unlock phase');
+  assert.deepStrictEqual(evaluatePhases, ['end-of-tick'], 'tick should evaluate unlock transitions during unlock phase');
   assert.deepStrictEqual(summary.unlocks.transitions, ['layer:idle']);
   assert.deepStrictEqual(engine.stateStore.get('derived.unlocks').transitions, ['layer:idle']);
 }
@@ -377,6 +376,98 @@ function runDeterministicReplayCase() {
   assert.deepStrictEqual(runA, runB, 'same deterministic intent timeline must produce the same final state snapshot');
 }
 
+function runRuntimeLockIntegrationCase() {
+  const definition = {
+    meta: { schemaVersion: '1.2.0', gameId: 'runtime-lock-integration' },
+    systems: { tickMs: 1000 },
+    state: {
+      resources: { xp: 0 },
+      layers: {
+        idle: {
+          routines: {
+            unlockable: { active: false },
+          },
+          routinePools: {
+            jobs: { total: 1, used: 0, activeRoutineId: null },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        unlock: { always: true },
+        routineSystem: {
+          slotPools: {
+            jobs: {
+              totalPath: 'layers.idle.routinePools.jobs.total',
+              usedPath: 'layers.idle.routinePools.jobs.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.jobs.activeRoutineId',
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'main',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'unlockable',
+                    type: 'routine',
+                    mode: 'manual',
+                    unlock: { resourceGte: { path: 'resources.xp', value: 1 } },
+                    slot: { poolId: 'jobs' },
+                    produces: [{ path: 'resources.xp', perSecond: 0 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const targetRef = 'layer:idle/sublayer:main/section:jobs/element:unlockable';
+  const engine = new GameEngine({ devModeStrict: true, timeSystem: { getDeltaTime: () => 1000 } });
+  engine.initialize(definition);
+
+  engine.enqueueIntent({
+    type: 'ROUTINE_START',
+    payload: {
+      targetRef,
+      layerId: 'idle',
+      routineId: 'unlockable',
+      poolId: 'jobs',
+    },
+  });
+
+  const lockedTick = engine.tick();
+  assert.strictEqual(lockedTick.intentsRouted[0].ok, false);
+  assert.strictEqual(lockedTick.intentsRouted[0].code, 'INTENT_TARGET_LOCKED');
+
+  engine.stateStore.set('resources.xp', 1);
+  engine.tick();
+
+  engine.enqueueIntent({
+    type: 'ROUTINE_START',
+    payload: {
+      targetRef,
+      layerId: 'idle',
+      routineId: 'unlockable',
+      poolId: 'jobs',
+    },
+  });
+
+  const unlockedTick = engine.tick();
+  assert.strictEqual(unlockedTick.intentsRouted[0].ok, true);
+  assert.strictEqual(unlockedTick.intentsRouted[0].code, 'INTENT_ROUTED');
+}
+
 function runGuardrailCases() {
   const validDefinition = loadFixture('valid-definition.json');
 
@@ -413,6 +504,7 @@ function run() {
   runQueueOnlyFifoAndSnapshotCase();
   runDispatchCycleDeferralGuardrailCase();
   runDeterministicReplayCase();
+  runRuntimeLockIntegrationCase();
   console.log('game-engine-phase-loop tests passed');
 }
 
