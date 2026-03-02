@@ -2,8 +2,56 @@
 const DEFAULT_COMPATIBILITY_POLICY = {
   supportedMajor: 1,
   minimumMinor: 0,
-  maximumMinor: 1,
+  maximumMinor: 2,
 };
+
+/**
+ * @typedef {{major: number, minor: number, patch: number}} NormalizedSchemaVersion
+ */
+
+/**
+ * @param {unknown} version
+ * @returns {NormalizedSchemaVersion | null}
+ */
+function parseSchemaVersion(version) {
+  if (typeof version !== 'string') {
+    return null;
+  }
+
+  const match = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(version);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3] ?? 0),
+  };
+}
+
+/**
+ * @param {unknown} left
+ * @param {unknown} right
+ * @returns {number | null}
+ */
+function compareSchemaVersions(left, right) {
+  const leftVersion = parseSchemaVersion(left);
+  const rightVersion = parseSchemaVersion(right);
+  if (!leftVersion || !rightVersion) {
+    return null;
+  }
+
+  if (leftVersion.major !== rightVersion.major) {
+    return leftVersion.major - rightVersion.major;
+  }
+
+  if (leftVersion.minor !== rightVersion.minor) {
+    return leftVersion.minor - rightVersion.minor;
+  }
+
+  return leftVersion.patch - rightVersion.patch;
+}
 
 /**
  * @param {unknown} schemaVersion
@@ -16,26 +64,25 @@ function validateSchemaVersion(schemaVersion, policy = DEFAULT_COMPATIBILITY_POL
       {
         code: 'SCHEMA_VERSION_TYPE',
         path: '/meta/schemaVersion',
-        message: 'schemaVersion must be a string in <major>.<minor> format.',
-        hint: 'Set meta.schemaVersion to a string like "1.0".',
+        message: 'schemaVersion must be a string in <major>.<minor>[.<patch>] format.',
+        hint: 'Set meta.schemaVersion to a string like "1.0" or "1.2.0".',
       },
     ];
   }
 
-  const match = /^(\d+)\.(\d+)$/.exec(schemaVersion);
-  if (!match) {
+  const normalized = parseSchemaVersion(schemaVersion);
+  if (!normalized) {
     return [
       {
         code: 'SCHEMA_VERSION_FORMAT',
         path: '/meta/schemaVersion',
         message: `Unsupported schemaVersion format "${schemaVersion}".`,
-        hint: 'Use numeric dot notation (for example "1.0").',
+        hint: 'Use numeric dot notation (for example "1.0" or "1.2.0").',
       },
     ];
   }
 
-  const major = Number(match[1]);
-  const minor = Number(match[2]);
+  const { major, minor } = normalized;
 
   if (major !== policy.supportedMajor) {
     return [
@@ -63,6 +110,8 @@ function validateSchemaVersion(schemaVersion, policy = DEFAULT_COMPATIBILITY_POL
 }
 
 module.exports = {
+  compareSchemaVersions,
   DEFAULT_COMPATIBILITY_POLICY,
+  parseSchemaVersion,
   validateSchemaVersion,
 };
