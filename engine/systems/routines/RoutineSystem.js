@@ -87,6 +87,12 @@ class RoutineSystem {
 
     for (const entry of survivingEntries) {
       const multipliers = this.#resolveRoutineMultiplierSnapshot(entry);
+      if (!this.#canAffordConsumes(entry, dtSeconds, multipliers.consumeMultiplier)) {
+        this.#stop(entry.layerId, entry.id, 'auto-stop-consume-underflow');
+        stoppedBeforeDelta.push(`${entry.layerId}/${entry.id}`);
+        continue;
+      }
+
       this.#applyResourceDeltaList(entry.produces || [], dtSeconds, multipliers.produceMultiplier);
       this.#applyResourceDeltaList(entry.consumes || [], dtSeconds, -multipliers.consumeMultiplier);
       applied.push({
@@ -101,6 +107,31 @@ class RoutineSystem {
       applied,
       characteristics: this.characteristicSystem ? this.characteristicSystem.getSnapshot() : null,
     };
+  }
+
+  #canAffordConsumes(entry, dtSeconds, consumeMultiplier) {
+    const consumes = Array.isArray(entry.consumes) ? entry.consumes : [];
+    for (const consumeEntry of consumes) {
+      if (!consumeEntry || typeof consumeEntry !== 'object') {
+        continue;
+      }
+      const perSecond = consumeEntry.perSecond;
+      if (!Number.isFinite(perSecond) || perSecond <= 0) {
+        continue;
+      }
+
+      const currentValue = this.stateStore.get(consumeEntry.path);
+      if (!Number.isFinite(currentValue)) {
+        return false;
+      }
+
+      const required = perSecond * dtSeconds * consumeMultiplier;
+      if (!Number.isFinite(required) || currentValue - required < 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   #start(layerId, routineId, reason) {
@@ -213,7 +244,8 @@ class RoutineSystem {
       }
 
       const delta = perSecond * dtSeconds * signAdjustedMultiplier;
-      this.stateStore.set(deltaEntry.path, currentValue + delta);
+      const nextValue = currentValue + delta;
+      this.stateStore.set(deltaEntry.path, nextValue < 0 ? 0 : nextValue);
     }
   }
 
