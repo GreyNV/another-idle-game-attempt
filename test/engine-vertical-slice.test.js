@@ -14,9 +14,37 @@ function buildMinimalDefinition() {
     state: {
       resources: {
         xp: 0,
+        layerXp: 5,
       },
     },
     layers: [
+      {
+        id: 'meta',
+        type: 'progressLayer',
+        unlock: {
+          resourceGte: {
+            path: 'resources.layerXp',
+            value: 10,
+          },
+        },
+        sublayers: [
+          {
+            id: 'overview',
+            type: 'progress',
+            sections: [
+              {
+                id: 'summary',
+                elements: [
+                  {
+                    id: 'layer-metric',
+                    type: 'progressBar',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
       {
         id: 'idle',
         type: 'progressLayer',
@@ -89,6 +117,10 @@ function buildMinimalDefinition() {
   };
 }
 
+function findLayer(ui, layerId) {
+  return (ui.layers || []).find((layer) => layer.id === layerId);
+}
+
 function runVerticalSliceCase() {
   const definition = buildMinimalDefinition();
   const dispatchTrace = [];
@@ -97,6 +129,7 @@ function runVerticalSliceCase() {
   const gatedSublayerRef = 'layer:idle/sublayer:gated-sub';
   const gatedSectionRef = 'layer:idle/sublayer:gated-sub/section:gated-section';
   const gatedElementRef = 'layer:idle/sublayer:gated-sub/section:gated-section/element:gated-element';
+  const gatedLayerRef = 'layer:meta';
 
   const engine = new GameEngine({
     devModeStrict: false,
@@ -116,22 +149,31 @@ function runVerticalSliceCase() {
 
   const tickOne = engine.tick();
 
-  assert.strictEqual(tickOne.dispatchedHandlers, 1, 'event queue should dispatch exactly one subscribed handler');
-  assert.deepStrictEqual(dispatchTrace, ['idle'], 'layer update event should be dispatched in the event-dispatch phase');
+  assert.strictEqual(tickOne.dispatchedHandlers, 2, 'event queue should dispatch one handler per updated layer event');
+  assert.deepStrictEqual(dispatchTrace, ['idle', 'idle'], 'layer update events should be dispatched in the event-dispatch phase');
 
   assert.strictEqual(
     tickOne.unlocks.transitions.includes(xpGatedRef),
     false,
     'xp-gated element should remain locked at xp=0'
   );
+  assert.strictEqual(tickOne.unlocks.statusByRef[gatedLayerRef].showPlaceholder, true);
+  assert(tickOne.unlocks.statusByRef[gatedLayerRef].progress > 0);
 
-  const tickOneElements = tickOne.ui.layers[0].sublayers[0].sections[0].elements;
+  const tickOneLayer = tickOne.ui.layers.find((layer) => layer.id === 'meta');
+  assert.ok(tickOneLayer, 'UI should render locked layers with partial progress as placeholders');
+  assert.strictEqual(tickOneLayer.placeholder, true);
+  assert.strictEqual(tickOneLayer.unlockProgress, tickOne.unlocks.statusByRef[gatedLayerRef].progress);
+  assert.deepStrictEqual(tickOneLayer.sublayers, [], 'locked layer placeholder should not render child sublayers');
+
+  const tickOneIdleLayer = findLayer(tickOne.ui, 'idle');
+  const tickOneElements = tickOneIdleLayer.sublayers[0].sections[0].elements;
   assert.deepStrictEqual(
     tickOneElements.map((element) => element.id),
     ['always-on'],
     'UI should hide xp-gated element while locked'
   );
-  const tickOneSublayers = tickOne.ui.layers[0].sublayers;
+  const tickOneSublayers = tickOneIdleLayer.sublayers;
   assert.strictEqual(
     tickOneSublayers.some((sublayer) => sublayer.id === 'gated-sub'),
     false,
@@ -142,7 +184,8 @@ function runVerticalSliceCase() {
   const tickTwo = engine.tick();
 
   assert.ok(tickTwo.unlocks.transitions.includes(xpGatedRef), 'xp-gated element should transition to unlocked at xp=1');
-  const tickTwoElements = tickTwo.ui.layers[0].sublayers[0].sections[0].elements;
+  const tickTwoIdleLayer = findLayer(tickTwo.ui, 'idle');
+  const tickTwoElements = tickTwoIdleLayer.sublayers[0].sections[0].elements;
   assert.deepStrictEqual(
     tickTwoElements.map((element) => element.id),
     ['always-on', 'xp-gated'],
@@ -151,37 +194,57 @@ function runVerticalSliceCase() {
 
   engine.stateStore.set('resources.xp', 2);
   const tickThree = engine.tick();
-  const tickThreeSublayer = tickThree.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  const tickThreeIdleLayer = findLayer(tickThree.ui, 'idle');
+  const tickThreeSublayer = tickThreeIdleLayer.sublayers.find((sublayer) => sublayer.id === 'gated-sub');
   assert.ok(tickThree.unlocks.transitions.includes(gatedSublayerRef), 'locked sublayer should transition when xp reaches 2');
   assert.ok(tickThreeSublayer, 'UI should include sublayer after sublayer unlock condition is met');
   assert.strictEqual(tickThreeSublayer.sections.length, 1, 'section placeholder should render when unlock progress is partial');
   assert.strictEqual(tickThreeSublayer.sections[0].id, 'gated-section');
   assert.strictEqual(tickThreeSublayer.sections[0].placeholder, true);
+  assert.strictEqual(
+    tickThreeSublayer.sections[0].unlockProgress,
+    tickThree.unlocks.statusByRef[gatedSectionRef].progress,
+    'section placeholder should include unlock progress metadata'
+  );
   assert.deepStrictEqual(tickThreeSublayer.sections[0].elements, [], 'placeholder section should not render child elements until unlocked');
 
   engine.stateStore.set('resources.xp', 3);
   const tickFour = engine.tick();
-  const tickFourSublayer = tickFour.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  const tickFourIdleLayer = findLayer(tickFour.ui, 'idle');
+  const tickFourSublayer = tickFourIdleLayer.sublayers.find((sublayer) => sublayer.id === 'gated-sub');
   assert.ok(tickFour.unlocks.transitions.includes(gatedSectionRef), 'locked section should transition when xp reaches 3');
   assert.strictEqual(tickFourSublayer.sections[0].id, 'gated-section');
   assert.strictEqual(tickFourSublayer.sections[0].placeholder, false);
   assert.strictEqual(tickFourSublayer.sections[0].elements.length, 1, 'element placeholder should render while partially unlocked');
   assert.strictEqual(tickFourSublayer.sections[0].elements[0].id, 'gated-element');
   assert.strictEqual(tickFourSublayer.sections[0].elements[0].placeholder, true);
+  assert.strictEqual(
+    tickFourSublayer.sections[0].elements[0].unlockProgress,
+    tickFour.unlocks.statusByRef[gatedElementRef].progress,
+    'element placeholder should include unlock progress metadata'
+  );
 
+  engine.stateStore.set('resources.layerXp', 10);
   engine.stateStore.set('resources.xp', 4);
   const tickFive = engine.tick();
-  const tickFiveSublayer = tickFive.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  const tickFiveIdleLayer = findLayer(tickFive.ui, 'idle');
+  const tickFiveSublayer = tickFiveIdleLayer.sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  const tickFiveLayer = tickFive.ui.layers.find((layer) => layer.id === 'meta');
   assert.ok(tickFive.unlocks.transitions.includes(gatedElementRef), 'locked element should transition when xp reaches 4');
+  assert.ok(tickFive.unlocks.transitions.includes(gatedLayerRef), 'locked layer should transition when layerXp reaches 10');
   assert.deepStrictEqual(
     tickFiveSublayer.sections[0].elements.map((element) => element.id),
     ['gated-element'],
     'UI should include gated element only after unlock condition is met'
   );
+  assert.strictEqual(tickFiveLayer.placeholder, false, 'layer should flip from placeholder to unlocked at threshold');
+  assert.strictEqual(tickFiveLayer.unlockProgress, 1, 'unlocked layer should report complete progress');
+  assert.strictEqual(tickFiveLayer.sublayers.length, 1, 'unlocked layer should render child sublayers');
 
   engine.stateStore.set('resources.xp', 0);
   const tickSix = engine.tick();
-  const tickSixSublayer = tickSix.ui.layers[0].sublayers.find((sublayer) => sublayer.id === 'gated-sub');
+  const tickSixIdleLayer = findLayer(tickSix.ui, 'idle');
+  const tickSixSublayer = tickSixIdleLayer.sublayers.find((sublayer) => sublayer.id === 'gated-sub');
   assert.ok(tickSixSublayer, 'sublayer unlock should persist one-way when condition drops back below threshold');
   assert.strictEqual(tickSixSublayer.sections[0].id, 'gated-section');
   assert.deepStrictEqual(

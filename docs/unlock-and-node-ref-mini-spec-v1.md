@@ -64,6 +64,30 @@ Different failure classes are intentionally split:
 
 This keeps startup deterministic while allowing runtime state evolution without evaluator crashes.
 
+
+## 5) Placeholder rendering contract (v1)
+
+Placeholder behavior is owned by the unlock system + UI composer, not by custom layer logic.
+
+1. Every node (`layer`, `sublayer`, `section`, `element`) receives canonical unlock status from `UnlockEvaluator.statusByRef`:
+   - `unlocked: boolean`
+   - `progress: number` in `[0, 1]`
+   - `showPlaceholder: boolean`
+2. Placeholder visibility rule is deterministic and uniform across hierarchy levels:
+   - Include node in UI when `unlocked === true` **or** `showPlaceholder === true`.
+   - `showPlaceholder` is true only when node is still locked with partial progress (`progress > 0`).
+   - Locked nodes with zero progress are omitted from UI.
+3. Placeholder metadata contract in composed UI nodes:
+   - `placeholder: !unlocked`
+   - `unlockProgress: progress`
+4. Child rendering contract:
+   - If a node is rendered as placeholder (`placeholder: true`), children are not composed yet.
+   - When unlock reaches threshold (`progress === 1` and transition occurs), node flips to `placeholder: false` and children are composed on that tick.
+5. One-way unlock persistence still applies:
+   - After unlock transition, later state drops below threshold do not relock the node.
+
+Layer authors must rely on this contract instead of adding custom placeholder/visibility logic in layer modules.
+
 ## Agent character sheet summary (from `AGENTS.md`)
 
 - **Role:** implementation-focused engine architect turning the blueprint into deterministic modules and interfaces.
