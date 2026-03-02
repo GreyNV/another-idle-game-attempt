@@ -2,12 +2,12 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const { GameEngine } = require('../engine/core/GameEngine');
 const {
+  GameEngine,
   parseGameDefinition,
   validateGameDefinitionSchema,
   validateReferences,
-} = require('../engine/validation');
+} = require('../engine');
 
 function loadFixtureRaw(name) {
   return fs.readFileSync(path.join(__dirname, '..', 'engine', 'validation', 'fixtures', name), 'utf8');

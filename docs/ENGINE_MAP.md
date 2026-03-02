@@ -2,6 +2,12 @@
 
 Stable implementation map for the deterministic runtime.
 
+## Public API stability
+
+- Stable public API imports for external callers and black-box tests are exported from `engine/index.js`.
+- Current stable exports are: `GameEngine`, `LayerRegistry`, `parseGameDefinition`, `validateGameDefinitionSchema`, `validateReferences`, and `ValidationError`.
+- All deeper imports (for example `engine/systems/*`, `engine/ui/*`, and non-index paths under `engine/core/*`, `engine/plugins/*`, and `engine/validation/*`) are internal implementation details and are **not** covered by API stability guarantees.
+
 ## Stable file pointers
 
 | Area | File pointer | Responsibility | Stable entry symbols |
