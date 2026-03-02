@@ -52,6 +52,91 @@ const INTENT_CATALOG = Object.freeze({
     routingTarget: 'progressLayer',
     lockCheckPolicy: LOCK_CHECK_POLICIES.REJECT_IF_TARGET_LOCKED,
   }),
+
+  ROUTINE_START: Object.freeze({
+    payloadSchema: Object.freeze({
+      targetRef: 'string?',
+      layerId: 'string',
+      routineId: 'string',
+      reason: 'string?',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!ensureOptionalString(payload, 'targetRef')) {
+        return 'payload.targetRef must be a string when provided';
+      }
+      if (typeof payload.layerId !== 'string' || payload.layerId.length === 0) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!ensureOptionalString(payload, 'reason')) {
+        return 'payload.reason must be a string when provided';
+      }
+      return null;
+    },
+    routingTarget: 'RoutineSystem',
+    lockCheckPolicy: LOCK_CHECK_POLICIES.REJECT_IF_TARGET_LOCKED,
+  }),
+  ROUTINE_STOP: Object.freeze({
+    payloadSchema: Object.freeze({
+      targetRef: 'string?',
+      layerId: 'string',
+      routineId: 'string',
+      reason: 'string?',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!ensureOptionalString(payload, 'targetRef')) {
+        return 'payload.targetRef must be a string when provided';
+      }
+      if (typeof payload.layerId !== 'string' || payload.layerId.length === 0) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!ensureOptionalString(payload, 'reason')) {
+        return 'payload.reason must be a string when provided';
+      }
+      return null;
+    },
+    routingTarget: 'RoutineSystem',
+    lockCheckPolicy: LOCK_CHECK_POLICIES.REJECT_IF_TARGET_LOCKED,
+  }),
+  ROUTINE_TOGGLE: Object.freeze({
+    payloadSchema: Object.freeze({
+      targetRef: 'string?',
+      layerId: 'string',
+      routineId: 'string',
+      reason: 'string?',
+    }),
+    validatePayload(payload) {
+      if (!isPlainObject(payload)) {
+        return 'payload must be an object';
+      }
+      if (!ensureOptionalString(payload, 'targetRef')) {
+        return 'payload.targetRef must be a string when provided';
+      }
+      if (typeof payload.layerId !== 'string' || payload.layerId.length === 0) {
+        return 'payload.layerId must be a non-empty string';
+      }
+      if (typeof payload.routineId !== 'string' || payload.routineId.length === 0) {
+        return 'payload.routineId must be a non-empty string';
+      }
+      if (!ensureOptionalString(payload, 'reason')) {
+        return 'payload.reason must be a string when provided';
+      }
+      return null;
+    },
+    routingTarget: 'RoutineSystem',
+    lockCheckPolicy: LOCK_CHECK_POLICIES.REJECT_IF_TARGET_LOCKED,
+  }),
   REQUEST_LAYER_RESET: Object.freeze({
     payloadSchema: Object.freeze({
       targetRef: 'string?',
