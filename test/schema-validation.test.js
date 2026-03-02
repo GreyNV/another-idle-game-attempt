@@ -137,6 +137,68 @@ function runRoutineSchemaGateChecks() {
 
 
 function runRoutineSchemaValidationChecks() {
+  const validWithSlotPools = {
+    meta: { schemaVersion: '1.2.0', gameId: 'routine-slot-pools-valid' },
+    systems: { tickMs: 100 },
+    state: {
+      resources: { xp: 0 },
+      flags: { jobUnlocked: false },
+      layers: {
+        idle: {
+          routinePools: {
+            workers: {
+              total: 2,
+              used: 0,
+              activeRoutineId: null,
+            },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        routineSystem: {
+          slotPools: {
+            workers: {
+              totalPath: 'layers.idle.routinePools.workers.total',
+              usedPath: 'layers.idle.routinePools.workers.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.workers.activeRoutineId',
+              singleActivePerPool: true,
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'routines',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'woodcut-routine',
+                    type: 'routine',
+                    mode: 'auto',
+                    slot: { poolId: 'workers' },
+                    produces: [{ path: 'resources.xp', perSecond: 1 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const normalized = parseGameDefinition(validWithSlotPools);
+  assert(normalized.layers[0].routineSystem.slotPoolsById.workers, 'Expected slot pool map entry for workers');
+  assert.strictEqual(normalized.layers[0].routineSystem.slotPoolsById.workers.singleActivePerPool, true);
+  assert(normalized.layers[0].runtime.routineDefinitionsById['woodcut-routine'], 'Expected runtime routine definition map entry');
+  assert.strictEqual(normalized.layers[0].runtime.routineDefinitionsById['woodcut-routine'].slot.cost, 1);
+
   const routineInvalidShape = {
     meta: { schemaVersion: '1.2.0', gameId: 'routine-shape-invalid' },
     systems: { tickMs: 100 },
@@ -234,6 +296,66 @@ function runRoutineSchemaValidationChecks() {
   assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_PATH_MISSING' && entry.path.includes('/consumes/0/path')));
   assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_PATH_MISSING' && entry.path.includes('/requires/0/path')));
   assert(caught.issues.some((entry) => entry.code === 'REF_SET_FLAG_PATH_POLICY' && entry.path.includes('/effects/setFlag/path')));
+
+  const routineUnknownPool = {
+    meta: { schemaVersion: '1.2.0', gameId: 'routine-unknown-pool' },
+    systems: { tickMs: 100 },
+    state: {
+      resources: { xp: 0 },
+      layers: {
+        idle: {
+          routinePools: {
+            workers: { total: 1, used: 0, activeRoutineId: null },
+          },
+        },
+      },
+    },
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        routineSystem: {
+          slotPools: {
+            workers: {
+              totalPath: 'layers.idle.routinePools.workers.total',
+              usedPath: 'layers.idle.routinePools.workers.used',
+              activeRoutineIdPath: 'layers.idle.routinePools.workers.activeRoutineId',
+            },
+          },
+        },
+        sublayers: [
+          {
+            id: 'routines',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'woodcut-routine',
+                    type: 'routine',
+                    mode: 'auto',
+                    slot: { poolId: 'missingPool', cost: 1 },
+                    produces: [{ path: 'resources.xp', perSecond: 1 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  caught = null;
+  try {
+    parseGameDefinition(routineUnknownPool);
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(caught instanceof ValidationError, 'routineUnknownPool should fail reference validation');
+  assert(caught.issues.some((entry) => entry.code === 'REF_ROUTINE_SLOT_POOL_UNKNOWN' && entry.path.includes('/slot/poolId')));
 }
 
 function runSoftcapModeAlignmentCheck() {

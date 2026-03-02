@@ -220,6 +220,35 @@ function validateReferences(definition) {
       return;
     }
 
+    const layerId = typeof layer.id === 'string' && layer.id.trim() !== '' ? layer.id : `<index:${layerIdx}>`;
+    const slotPools =
+      isObject(layer.routineSystem) && isObject(layer.routineSystem.slotPools) ? layer.routineSystem.slotPools : null;
+    const knownSlotPoolIds = new Set(slotPools ? Object.keys(slotPools) : []);
+
+    if (slotPools) {
+      for (const [poolId, poolConfig] of Object.entries(slotPools)) {
+        if (!isObject(poolConfig)) {
+          continue;
+        }
+
+        ['totalPath', 'usedPath', 'activeRoutineIdPath'].forEach((field) => {
+          const value = poolConfig[field];
+          if (typeof value !== 'string' || value.trim() === '') {
+            return;
+          }
+
+          if (!hasStatePath(rootState, value)) {
+            issues.push({
+              code: 'REF_ROUTINE_SLOT_POOL_PATH_MISSING',
+              path: `/layers/${layerIdx}/routineSystem/slotPools/${poolId}/${field}`,
+              message: `Layer "${layerId}" slot pool "${poolId}" references missing state path "${value}".`,
+              hint: 'Add the state path or update this slot pool path to an existing canonical state path.',
+            });
+          }
+        });
+      }
+    }
+
     if (Array.isArray(layer.softcaps)) {
       layer.softcaps.forEach((softcap, softcapIdx) => {
         if (isObject(softcap) && typeof softcap.scope === 'string') {
@@ -307,6 +336,18 @@ function validateReferences(definition) {
           if (element.type === 'routine') {
             const routineId = typeof element.id === 'string' && element.id.trim() !== '' ? element.id : `<index:${elementIdx}>`;
             const routinePath = `/layers/${layerIdx}/sublayers/${subIdx}/sections/${sectionIdx}/elements/${elementIdx}`;
+
+            if (isObject(element.slot) && typeof element.slot.poolId === 'string' && element.slot.poolId.trim() !== '') {
+              if (!knownSlotPoolIds.has(element.slot.poolId)) {
+                issues.push({
+                  code: 'REF_ROUTINE_SLOT_POOL_UNKNOWN',
+                  path: `${routinePath}/slot/poolId`,
+                  message: `Routine "${routineId}" in layer "${layerId}" references unknown slot pool "${element.slot.poolId}".`,
+                  hint: 'Add this pool id under layer.routineSystem.slotPools or update routine.slot.poolId to an existing pool.',
+                });
+              }
+            }
+
             validateRoutinePathArray(routineId, element.produces, `${routinePath}/produces`);
             validateRoutinePathArray(routineId, element.consumes, `${routinePath}/consumes`);
             validateRoutinePathArray(routineId, element.requires, `${routinePath}/requires`);
