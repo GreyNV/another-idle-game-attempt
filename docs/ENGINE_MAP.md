@@ -21,6 +21,7 @@ Stable implementation map for the deterministic runtime.
 | UI composition | `engine/ui/UIComposer.js` | Builds renderer-facing, read-only UI model from definition + state readers. | `UIComposer.compose()` |
 | Layer plugin registry | `engine/plugins/LayerRegistry.js` | Registers layer factories by type and instantiates valid layer plugins. | `LayerRegistry.register()`, `LayerRegistry.createLayer()` |
 | Layer reset service | `engine/systems/reset/LayerResetService.js` | Executes reset with keep rules and emits reset event. | `LayerResetService.preview()`, `LayerResetService.execute()` |
+| Save pipeline | `engine/systems/save/SaveSystem.js` | Deterministic snapshot serialization/deserialization and schema-version migration gate. | `SaveSystem.serialize()`, `SaveSystem.deserialize()`, `SaveSystem.migrate()` |
 
 ## Dataflow summary
 

@@ -8,11 +8,17 @@ const { LayerResetService } = require('./reset/LayerResetService');
 const { UnlockEvaluator } = require('./unlocks/UnlockEvaluator');
 const { RoutineSystem } = require('./routines/RoutineSystem');
 const { CharacteristicSystem } = require('./stats/CharacteristicSystem');
+const { SaveSystem } = require('./save/SaveSystem');
+const { DEFAULT_COMPATIBILITY_POLICY } = require('../validation/schema/schemaVersionPolicy');
 const { UIComposer } = require('../ui/UIComposer');
 
 function createRuntimeSystems(options = {}) {
   const strictValidation = options.devModeStrict !== false;
   const definition = options.definition || { state: {}, layers: [] };
+  const schemaVersionPolicy = options.schemaVersionPolicy || DEFAULT_COMPATIBILITY_POLICY;
+  const schemaVersion =
+    (definition && definition.meta && definition.meta.schemaVersion) ||
+    `${schemaVersionPolicy.supportedMajor}.${schemaVersionPolicy.minimumMinor}.0`;
 
   const eventBus =
     options.eventBus ||
@@ -32,6 +38,12 @@ function createRuntimeSystems(options = {}) {
       stateStore,
     });
   const uiComposer = options.uiComposer || new UIComposer();
+  const saveSystem =
+    options.saveSystem ||
+    new SaveSystem({
+      schemaVersion,
+      compatibilityPolicy: schemaVersionPolicy,
+    });
 
   const hasInjectedNodeLockResolver = typeof options.isNodeLocked === 'function';
   if (!options.intentRouter && strictValidation && !hasInjectedNodeLockResolver) {
@@ -87,6 +99,7 @@ function createRuntimeSystems(options = {}) {
     layerResetService,
     unlockEvaluator,
     routineSystem,
+    saveSystem,
     uiComposer,
   };
 }
