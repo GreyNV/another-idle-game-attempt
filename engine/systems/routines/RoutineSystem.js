@@ -22,6 +22,8 @@ class RoutineSystem {
     this.definition = options.definition || { layers: [] };
     this.stateStore = options.stateStore;
     this.modifierResolver = options.modifierResolver;
+    this.multiplierCompiler = options.multiplierCompiler || null;
+    this.characteristicSystem = options.characteristicSystem || null;
     this.eventBus = options.eventBus || null;
     this.index = this.#buildRoutineIndex(this.definition);
     this.activeByPool = new Map();
@@ -97,6 +99,7 @@ class RoutineSystem {
     return {
       stoppedBeforeDelta,
       applied,
+      characteristics: this.characteristicSystem ? this.characteristicSystem.getSnapshot() : null,
     };
   }
 
@@ -164,8 +167,8 @@ class RoutineSystem {
     const yieldKeys = Array.isArray(scaling.yieldMultiplierKeys) ? scaling.yieldMultiplierKeys : [];
     const targetRef = `layer:${entry.layerId}`;
 
-    const speedMultiplier = this.#resolveMultiplierFromKeys(targetRef, speedKeys);
-    const yieldMultiplier = this.#resolveMultiplierFromKeys(targetRef, yieldKeys);
+    const speedMultiplier = this.#resolveMultiplierFromKeys(targetRef, entry.layerId, speedKeys);
+    const yieldMultiplier = this.#resolveMultiplierFromKeys(targetRef, entry.layerId, yieldKeys);
 
     return {
       speedMultiplier,
@@ -175,15 +178,23 @@ class RoutineSystem {
     };
   }
 
-  #resolveMultiplierFromKeys(targetRef, keys) {
+  #resolveMultiplierFromKeys(targetRef, layerId, keys) {
     let total = 1;
     for (const key of keys) {
-      const resolved = this.modifierResolver.resolve(targetRef, key, 1);
+      const resolved = this.#resolveSingleMultiplier(targetRef, layerId, key);
       if (Number.isFinite(resolved) && resolved >= 0) {
         total *= resolved;
       }
     }
     return total;
+  }
+
+  #resolveSingleMultiplier(targetRef, layerId, key) {
+    if (typeof key === 'string' && key.startsWith('mul.') && this.multiplierCompiler) {
+      return this.multiplierCompiler.getValue(layerId, key);
+    }
+
+    return this.modifierResolver.resolve(targetRef, key, 1);
   }
 
   #applyResourceDeltaList(entries, dtSeconds, signAdjustedMultiplier) {
