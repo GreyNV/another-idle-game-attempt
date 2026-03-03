@@ -12,20 +12,25 @@ import {
   updateEntityField,
   updateSelection,
 } from './editor/state.js';
-import { ENTITY_METADATA, SECTION_LABELS, SECTION_ORDER } from './editor/metadata.js';
+import { ENTITY_METADATA, PALETTE_GROUPS, SECTION_LABELS } from './editor/metadata.js';
 
 function renderTree(editorState, onSelect) {
   return (
     <div className="tree-panel panel">
       <h2>Progress Layer</h2>
       <button onClick={() => onSelect({ nodeType: 'root', section: null, id: null })}>Progress Layer root</button>
-      <ul>
-        {SECTION_ORDER.map((section) => (
-          <li key={section}>
-            <button onClick={() => onSelect({ nodeType: 'section', section, id: null })}>{SECTION_LABELS[section]}</button>
-          </li>
-        ))}
-      </ul>
+      {PALETTE_GROUPS.map((group) => (
+        <div key={group.id}>
+          <h3>{group.label}</h3>
+          <ul>
+            {group.kinds.map((section) => (
+              <li key={section}>
+                <button onClick={() => onSelect({ nodeType: 'section', section, id: null })}>{SECTION_LABELS[section]}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
