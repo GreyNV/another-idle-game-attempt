@@ -25,10 +25,30 @@ function run() {
   assert.strictEqual(sessionResult.ok, true);
   assert.strictEqual(typeof sessionResult.session.id, 'string');
 
-  const simulationResult = facade.simulate(validDefinition, { ticks: 2, intentsByTick: [[], []] });
+  const scenario = {
+    ticks: 2,
+    dt: 100,
+    seed: 42,
+    intentsByTick: [[], []],
+  };
+  const simulationResult = facade.simulate(validDefinition, scenario);
   assert.strictEqual(simulationResult.ok, true);
-  assert.strictEqual(simulationResult.simulation.ticks.length, 2);
+  assert.strictEqual(simulationResult.simulation.timeline.length, 2);
   assert.notStrictEqual(simulationResult.simulation.finalSnapshot, null);
+  assert.strictEqual(simulationResult.simulation.report.tickCount, 2);
+  assert.strictEqual(simulationResult.simulation.report.dt, 100);
+  assert.strictEqual(simulationResult.simulation.report.seed, 42);
+  assert.strictEqual(typeof simulationResult.simulation.runId, 'string');
+  assert.strictEqual(simulationResult.simulation.runId.startsWith('run_'), true);
+  assert.strictEqual(typeof simulationResult.simulation.report.hash.value, 'string');
+
+  const secondSimulationResult = facade.simulate(validDefinition, scenario);
+  assert.strictEqual(secondSimulationResult.ok, true);
+  assert.strictEqual(
+    secondSimulationResult.simulation.report.hash.value,
+    simulationResult.simulation.report.hash.value
+  );
+  assert.strictEqual(secondSimulationResult.simulation.runId, simulationResult.simulation.runId);
 
   const diffResult = facade.diffSnapshots(
     { canonical: { resources: { gold: 1 } } },

@@ -3,7 +3,11 @@ const { parseGameDefinition } = require('../validation/parser/parseGameDefinitio
 const { validateGameDefinitionSchema } = require('../validation/schema/validateGameDefinitionSchema');
 const { validateReferences } = require('../validation/references/validateReferences');
 const { ValidationError } = require('../validation/errors/ValidationError');
-const { DIAGNOSTIC_CODES } = require('./authoring-types');
+const {
+  AUTHORING_REPORT_DEFAULTS,
+  DIAGNOSTIC_CODES,
+  hashDeterministicPayload,
+} = require('./authoring-types');
 
 function toJsonSafe(value) {
   return value === undefined ? null : JSON.parse(JSON.stringify(value));
@@ -60,6 +64,51 @@ function parseInputDefinition(definitionJson) {
 
 function pointerToken(token) {
   return String(token).replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function normalizeInteger(value, fallback) {
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
+}
+
+function normalizePositiveNumber(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function asTypeCountMap(items, pickType) {
+  const counts = {};
+  for (const item of items) {
+    const type = pickType(item);
+    if (!type) {
+      continue;
+    }
+    counts[type] = (counts[type] || 0) + 1;
+  }
+  return counts;
+}
+
+function readResourceValue(snapshot, resourceKey) {
+  const resources = snapshot && snapshot.canonical && snapshot.canonical.resources;
+  const value = resources && resources[resourceKey];
+  return Number.isFinite(value) ? value : null;
+}
+
+function buildResourceKpis(resourceKeys, snapshots) {
+  const kpis = {};
+  for (const key of resourceKeys) {
+    const values = snapshots.map((snapshot) => readResourceValue(snapshot, key)).filter((value) => value !== null);
+    if (values.length === 0) {
+      continue;
+    }
+
+    kpis[key] = {
+      start: values[0],
+      end: values[values.length - 1],
+      min: Math.min(...values),
+      max: Math.max(...values),
+    };
+  }
+
+  return kpis;
 }
 
 class AuthoringFacade {
@@ -134,38 +183,149 @@ class AuthoringFacade {
       return validation;
     }
 
-    const ticks = Number.isInteger(scenario.ticks) && scenario.ticks >= 0 ? scenario.ticks : 1;
+    const ticks = normalizeInteger(scenario.ticks, 1);
     const intentsByTick = Array.isArray(scenario.intentsByTick) ? scenario.intentsByTick : [];
+    const seed = normalizeInteger(scenario.seed, AUTHORING_REPORT_DEFAULTS.defaultSeed);
+    const dt = normalizePositiveNumber(scenario.dt, 1000 / 60);
+    const eventTailLimit = normalizeInteger(scenario.eventTailLimit, AUTHORING_REPORT_DEFAULTS.eventTailLimit);
+    const canonicalResources = Array.isArray(scenario.canonicalResources)
+      ? scenario.canonicalResources.filter((resource) => typeof resource === 'string' && resource.length > 0)
+      : [];
 
     try {
       const normalizedDefinition = parseGameDefinition(definitionJson);
-      const engine = new GameEngine(scenario.engineOptions || {});
+      let nowTick = 0;
+      const deterministicNow = () => {
+        nowTick += 1;
+        return seed + nowTick * dt;
+      };
+      const engine = new GameEngine({
+        ...(scenario.engineOptions || {}),
+        now: deterministicNow,
+      });
       engine.initialize(normalizedDefinition);
 
-      const summaries = [];
+      const timeline = [];
+      const eventsPublishedTail = [];
+      const eventsPublishedByType = {};
+      const originalPublish = engine.eventBus.publish.bind(engine.eventBus);
+      engine.eventBus.publish = (event) => {
+        const type = event && event.type;
+        if (typeof type === 'string' && type.length > 0) {
+          eventsPublishedByType[type] = (eventsPublishedByType[type] || 0) + 1;
+          eventsPublishedTail.push({ tick: Math.max(0, timeline.length - 1), type, payload: toJsonSafe(event.payload || {}) });
+          if (eventsPublishedTail.length > eventTailLimit) {
+            eventsPublishedTail.shift();
+          }
+        }
+
+        return originalPublish(event);
+      };
+
+      const warnings = [];
+      const unlockTransitions = [];
+      const snapshots = [toJsonSafe(engine.stateStore.snapshot())];
+
       for (let tickIndex = 0; tickIndex < ticks; tickIndex += 1) {
         const intents = Array.isArray(intentsByTick[tickIndex]) ? intentsByTick[tickIndex] : [];
         for (const intent of intents) {
           engine.enqueueIntent(intent);
         }
 
-        summaries.push({
+        const summary = toJsonSafe(engine.tick());
+        const snapshot = toJsonSafe(engine.stateStore.snapshot());
+        snapshots.push(snapshot);
+
+        for (const transitionRef of (summary.unlocks && summary.unlocks.transitions) || []) {
+          unlockTransitions.push({
+            targetRef: transitionRef,
+            tick: tickIndex,
+          });
+        }
+
+        for (const routed of summary.intentsRouted || []) {
+          if (routed && routed.code === 'INTENT_TARGET_LOCKED') {
+            warnings.push({
+              code: 'REJECTED_LOCKED_INTENT',
+              tick: tickIndex,
+              message: routed.reason,
+            });
+          }
+        }
+
+        if (summary.dispatch && summary.dispatch.deferredDueToCycleLimit) {
+          warnings.push({
+            code: 'EVENT_DISPATCH_DEFERRED',
+            tick: tickIndex,
+            message: `Deferred ${summary.dispatch.deferredEvents} event(s) due to dispatch cycle limit.`,
+          });
+        }
+
+        timeline.push({
           tick: tickIndex,
-          summary: toJsonSafe(engine.tick()),
-          snapshot: toJsonSafe(engine.stateStore.snapshot()),
+          summary,
+          snapshot,
         });
       }
 
       const finalSnapshot = engine.stateStore ? toJsonSafe(engine.stateStore.snapshot()) : null;
+
+      const definitionResourceKeys = Object.keys(
+        (normalizedDefinition && normalizedDefinition.state && normalizedDefinition.state.resources) || {}
+      );
+      const reportResourceKeys =
+        canonicalResources.length > 0
+          ? canonicalResources
+          : definitionResourceKeys.slice().sort((left, right) => left.localeCompare(right));
+
+      const report = {
+        tickCount: ticks,
+        dt,
+        seed,
+        intentsRouted: asTypeCountMap(
+          timeline.flatMap((entry) => entry.summary.intentsRouted || []),
+          (routed) => (routed && routed.code) || null
+        ),
+        eventsDispatched: {
+          countsByType: eventsPublishedByType,
+          tail: eventsPublishedTail,
+        },
+        unlockTransitions,
+        resourceKpis: buildResourceKpis(reportResourceKeys, snapshots),
+        warnings,
+      };
+
+      const hashInput = {
+        definition: normalizedDefinition,
+        scenario: {
+          ticks,
+          intentsByTick,
+          seed,
+          dt,
+          eventTailLimit,
+          canonicalResources: reportResourceKeys,
+        },
+        report,
+      };
+
+      const hashSummary = hashDeterministicPayload(hashInput);
+      report.hash = {
+        algorithm: hashSummary.algorithm,
+        value: hashSummary.hash,
+      };
+
+      const runId = `run_${hashSummary.hash.slice(0, 16)}`;
+
       engine.destroy();
 
       return {
         ok: true,
         diagnostics: [],
         simulation: {
-          tickCount: ticks,
-          ticks: summaries,
+          runId,
+          report,
           finalSnapshot,
+          timeline,
         },
       };
     } catch (error) {
