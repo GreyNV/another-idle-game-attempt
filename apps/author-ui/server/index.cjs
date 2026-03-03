@@ -24,6 +24,11 @@ app.post('/api/simulate', (req, res) => {
   res.json(result);
 });
 
+app.post('/api/compile', (req, res) => {
+  const result = facade.compile(req.body.definitionJson);
+  res.json(result);
+});
+
 app.listen(PORT, () => {
   console.log(`Author UI API listening on http://localhost:${PORT}`);
 });

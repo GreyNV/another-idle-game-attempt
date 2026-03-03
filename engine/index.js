@@ -8,6 +8,7 @@ const {
 } = require('./validation');
 const { AuthoringFacade } = require('./authoring/AuthoringFacade');
 const { progressAuthoringMetadata } = require('./authoring/progressAuthoringMetadata');
+const { compileGameDefinition } = require('./authoring/compile/compileGameDefinition');
 
 module.exports = {
   GameEngine,
@@ -18,4 +19,5 @@ module.exports = {
   ValidationError,
   AuthoringFacade,
   progressAuthoringMetadata,
+  compileGameDefinition,
 };
