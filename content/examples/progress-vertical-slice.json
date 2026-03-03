@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "progress-authoring/1",
+  "meta": {
+    "id": "demo.game",
+    "name": "Demo Game"
+  },
+  "progress": {
+    "resources": {
+      "byId": {
+        "gold": {
+          "id": "gold",
+          "name": "Gold",
+          "start": 5
+        },
+        "xp": {
+          "id": "xp",
+          "name": "XP",
+          "start": 0
+        }
+      },
+      "order": [
+        "gold",
+        "xp"
+      ]
+    },
+    "routines": {
+      "byId": {
+        "beg": {
+          "id": "beg",
+          "name": "Beg",
+          "producesResourceId": "gold",
+          "producesAmount": 1,
+          "consumesResourceId": "",
+          "consumesAmount": 0,
+          "durationSec": 2,
+          "secondaryProducesResourceId": "xp",
+          "secondaryProducesAmount": 1
+        }
+      },
+      "order": [
+        "beg"
+      ]
+    },
+    "buyables": {
+      "byId": {
+        "better-cup": {
+          "id": "better-cup",
+          "name": "Better Cup",
+          "costResourceId": "gold",
+          "costAmount": 10,
+          "grantsRoutineId": "beg",
+          "effectTargetResourceId": "gold",
+          "effectAmount": 1
+        },
+        "swift-hands": {
+          "id": "swift-hands",
+          "name": "Swift Hands",
+          "costResourceId": "xp",
+          "costAmount": 5,
+          "grantsRoutineId": "",
+          "effectTargetResourceId": "",
+          "effectAmount": 1,
+          "durationMultiplier": 0.8
+        }
+      },
+      "order": [
+        "better-cup",
+        "swift-hands"
+      ]
+    },
+    "upgrades": {
+      "byId": {
+        "motivation": {
+          "id": "motivation",
+          "name": "Motivation",
+          "costResourceId": "xp",
+          "costAmount": 15,
+          "targetResourceId": "",
+          "targetBuyableId": "better-cup",
+          "multiplier": 2
+        }
+      },
+      "order": [
+        "motivation"
+      ]
+    }
+  },
+  "generated": {
+    "source": "apps/author-ui/src/editor/state.js flows",
+    "script": "scripts/generate-progress-vertical-slice.mjs",
+    "generatedAt": "2026-03-03T14:31:37.526Z"
+  },
+  "runtimePreview": {
+    "gameDefinition": {
+      "meta": {
+        "schemaVersion": "1.2.0",
+        "gameId": "demo.game",
+        "name": "Demo Game"
+      },
+      "systems": {
+        "tickMs": 100
+      },
+      "state": {
+        "resources": {
+          "gold": 5,
+          "xp": 0
+        },
+        "layers": {
+          "idle": {
+            "routinePools": {
+              "workerSlots": {
+                "total": 1,
+                "used": 0,
+                "activeRoutineId": null
+              }
+            }
+          }
+        }
+      },
+      "layers": [
+        {
+          "id": "idle",
+          "type": "progressLayer",
+          "unlock": {
+            "always": true
+          },
+          "routineSystem": {
+            "slotPools": {
+              "workerSlots": {
+                "totalPath": "layers.idle.routinePools.workerSlots.total",
+                "usedPath": "layers.idle.routinePools.workerSlots.used",
+                "activeRoutineIdPath": "layers.idle.routinePools.workerSlots.activeRoutineId",
+                "singleActivePerPool": true
+              }
+            }
+          },
+          "sublayers": [
+            {
+              "id": "progression",
+              "type": "progress",
+              "unlock": {
+                "always": true
+              },
+              "sections": [
+                {
+                  "id": "main",
+                  "elements": [
+                    {
+                      "id": "beg",
+                      "type": "routine",
+                      "unlock": {
+                        "always": true
+                      },
+                      "mode": "manual",
+                      "slot": {
+                        "poolId": "workerSlots",
+                        "cost": 1
+                      },
+                      "produces": [
+                        {
+                          "path": "resources.gold",
+                          "perSecond": 0.5
+                        },
+                        {
+                          "path": "resources.xp",
+                          "perSecond": 0.5
+                        }
+                      ],
+                      "consumes": []
+                    },
+                    {
+                      "id": "better-cup",
+                      "type": "buyable",
+                      "title": "Better Cup",
+                      "unlock": {
+                        "always": true
+                      },
+                      "cost": {
+                        "path": "resources.gold",
+                        "amount": 10
+                      },
+                      "grantsRoutineId": "beg",
+                      "effectTargetResourceId": "gold",
+                      "effectAmount": 1,
+                      "durationMultiplier": 1
+                    },
+                    {
+                      "id": "swift-hands",
+                      "type": "buyable",
+                      "title": "Swift Hands",
+                      "unlock": {
+                        "always": true
+                      },
+                      "cost": {
+                        "path": "resources.xp",
+                        "amount": 5
+                      },
+                      "grantsRoutineId": null,
+                      "effectTargetResourceId": null,
+                      "effectAmount": 1,
+                      "durationMultiplier": 0.8
+                    },
+                    {
+                      "id": "motivation",
+                      "type": "upgrade",
+                      "title": "Motivation",
+                      "unlock": {
+                        "always": true
+                      },
+                      "cost": {
+                        "path": "resources.xp",
+                        "amount": 15
+                      },
+                      "multiplier": 2,
+                      "targetBuyableId": "better-cup",
+                      "targetResourceId": null,
+                      "effect": {
+                        "targetRef": "layer:idle/sublayer:progression/section:main/element:better-cup"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
