@@ -7,6 +7,7 @@ const {
   ValidationError,
 } = require('./validation');
 const { AuthoringFacade } = require('./authoring/AuthoringFacade');
+const { progressAuthoringMetadata } = require('./authoring/progressAuthoringMetadata');
 
 module.exports = {
   GameEngine,
@@ -16,4 +17,5 @@ module.exports = {
   validateReferences,
   ValidationError,
   AuthoringFacade,
+  progressAuthoringMetadata,
 };
