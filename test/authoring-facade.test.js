@@ -24,6 +24,16 @@ function run() {
   assert.strictEqual(invalidResult.diagnostics[0].code, 'SCHEMA_VERSION_MAJOR_MISMATCH');
   assert.strictEqual(/^\//.test(invalidResult.diagnostics[0].path), true);
 
+
+  const compileResult = facade.compile(validDefinition);
+  assert.strictEqual(compileResult.ok, true);
+  assert.strictEqual(compileResult.errors.length, 0);
+  assert.ok(compileResult.compiledGame.progress.resources.byId.xp);
+
+  const compileErrorResult = facade.compile(loadFixture('invalid-target-reference.json'));
+  assert.strictEqual(compileErrorResult.ok, false);
+  assert.strictEqual(compileErrorResult.errors.some((entry) => entry.code === 'REF_ELEMENT_MISSING'), true);
+
   const scenario = {
     ticks: 2,
     dt: 100,

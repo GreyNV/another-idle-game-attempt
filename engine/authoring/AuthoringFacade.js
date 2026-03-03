@@ -3,6 +3,7 @@ const { parseGameDefinition } = require('../validation/parser/parseGameDefinitio
 const { validateGameDefinitionSchema } = require('../validation/schema/validateGameDefinitionSchema');
 const { validateReferences } = require('../validation/references/validateReferences');
 const { ValidationError } = require('../validation/errors/ValidationError');
+const { compileGameDefinition } = require('./compile/compileGameDefinition');
 const {
   AUTHORING_REPORT_DEFAULTS,
   DIAGNOSTIC_CODES,
@@ -130,6 +131,28 @@ class AuthoringFacade {
     return {
       ok: diagnostics.length === 0,
       diagnostics,
+    };
+  }
+
+  compile(definitionJson) {
+    const parsed = parseInputDefinition(definitionJson);
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        errors: parsed.diagnostics.map((diagnostic) => ({
+          code: diagnostic.code,
+          message: diagnostic.message,
+          path: diagnostic.path,
+        })),
+        compiledGame: null,
+      };
+    }
+
+    const compilation = compileGameDefinition(parsed.value);
+    return {
+      ok: compilation.errors.length === 0,
+      errors: compilation.errors,
+      compiledGame: compilation.compiledGame,
     };
   }
 
