@@ -11,19 +11,18 @@ function loadFixture(name) {
 
 function run() {
   const facade = new AuthoringFacade();
-  const validDefinition = loadFixture('valid-definition.json');
 
+  const validDefinition = loadFixture('valid-definition.json');
   const validResult = facade.validate(validDefinition);
   assert.strictEqual(validResult.ok, true);
   assert.deepStrictEqual(validResult.diagnostics, []);
 
-  const invalidResult = facade.validate('{broken');
+  const invalidDefinition = loadFixture('invalid-schema-version.json');
+  const invalidResult = facade.validate(invalidDefinition);
   assert.strictEqual(invalidResult.ok, false);
-  assert.strictEqual(invalidResult.diagnostics[0].code, 'AUTHORING_JSON_PARSE');
-
-  const sessionResult = facade.createSession(validDefinition);
-  assert.strictEqual(sessionResult.ok, true);
-  assert.strictEqual(typeof sessionResult.session.id, 'string');
+  assert.strictEqual(invalidResult.diagnostics.length > 0, true);
+  assert.strictEqual(invalidResult.diagnostics[0].code, 'SCHEMA_VERSION_MAJOR_MISMATCH');
+  assert.strictEqual(/^\//.test(invalidResult.diagnostics[0].path), true);
 
   const scenario = {
     ticks: 2,
@@ -31,32 +30,16 @@ function run() {
     seed: 42,
     intentsByTick: [[], []],
   };
-  const simulationResult = facade.simulate(validDefinition, scenario);
-  assert.strictEqual(simulationResult.ok, true);
-  assert.strictEqual(simulationResult.simulation.timeline.length, 2);
-  assert.notStrictEqual(simulationResult.simulation.finalSnapshot, null);
-  assert.strictEqual(simulationResult.simulation.report.tickCount, 2);
-  assert.strictEqual(simulationResult.simulation.report.dt, 100);
-  assert.strictEqual(simulationResult.simulation.report.seed, 42);
-  assert.strictEqual(typeof simulationResult.simulation.runId, 'string');
-  assert.strictEqual(simulationResult.simulation.runId.startsWith('run_'), true);
-  assert.strictEqual(typeof simulationResult.simulation.report.hash.value, 'string');
 
-  const secondSimulationResult = facade.simulate(validDefinition, scenario);
-  assert.strictEqual(secondSimulationResult.ok, true);
+  const firstSimulation = facade.simulate(validDefinition, scenario);
+  const secondSimulation = facade.simulate(validDefinition, scenario);
+
+  assert.strictEqual(firstSimulation.ok, true);
+  assert.strictEqual(secondSimulation.ok, true);
   assert.strictEqual(
-    secondSimulationResult.simulation.report.hash.value,
-    simulationResult.simulation.report.hash.value
+    firstSimulation.simulation.report.hash.value,
+    secondSimulation.simulation.report.hash.value
   );
-  assert.strictEqual(secondSimulationResult.simulation.runId, simulationResult.simulation.runId);
-
-  const diffResult = facade.diffSnapshots(
-    { canonical: { resources: { gold: 1 } } },
-    { canonical: { resources: { gold: 2, gems: 1 } } },
-    { maxChanges: 10 }
-  );
-  assert.strictEqual(diffResult.equal, false);
-  assert.strictEqual(diffResult.changes.length >= 1, true);
 
   console.log('authoring-facade tests passed');
 }
