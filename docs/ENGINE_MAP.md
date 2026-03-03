@@ -22,6 +22,19 @@ Stable implementation map for the deterministic runtime.
 | Layer plugin registry | `engine/plugins/LayerRegistry.js` | Registers layer factories by type and instantiates valid layer plugins. | `LayerRegistry.register()`, `LayerRegistry.createLayer()` |
 | Layer reset service | `engine/systems/reset/LayerResetService.js` | Executes reset with keep rules and emits reset event. | `LayerResetService.preview()`, `LayerResetService.execute()` |
 | Save pipeline | `engine/systems/save/SaveSystem.js` | Deterministic snapshot serialization/deserialization and schema-version migration gate. | `SaveSystem.serialize()`, `SaveSystem.deserialize()`, `SaveSystem.migrate()` |
+| Authoring service facade | `engine/authoring/AuthoringFacade.js` | Stable authoring-oriented API for validation/session/simulation flows consumed by Author UI and tooling. | `AuthoringFacade.validate()`, `AuthoringFacade.createSession()`, `AuthoringFacade.simulate()`, `AuthoringFacade.stepSession()`, `AuthoringFacade.disposeSession()` |
+
+## Authoring facade dependency boundary
+
+- `AuthoringFacade` is a stable entrypoint for authoring clients when imported from `engine/index.js`.
+- `AuthoringFacade` implementation may use a constrained internal import set to bridge validation + deterministic runtime simulation:
+  - `engine/core/GameEngine.js`
+  - `engine/validation/parser/parseGameDefinition.js`
+  - `engine/validation/schema/validateGameDefinitionSchema.js`
+  - `engine/validation/references/validateReferences.js`
+  - `engine/validation/errors/ValidationError.js`
+  - `engine/authoring/authoring-types.js`
+- No additional `engine/systems/*`, `engine/ui/*`, or plugin internals should be imported directly by Author UI code; these remain implementation details behind the facade.
 
 ## Dataflow summary
 
@@ -71,3 +84,16 @@ Stable implementation map for the deterministic runtime.
   - Author UI: desktop/PC executable builder interface (may use a different stack).
 - `engine/ui/UIComposer.js` remains a renderer-agnostic composition layer, not a coupled app frontend.
 - Shared contracts for both UIs should be stabilized before implementation scaling (see `docs/ui-project-split-plan.md`).
+
+## Author UI entrypoints and boundary notes
+
+- Author UI runtime entrypoints:
+  - Browser app bootstrap: `apps/author-ui/src/main.jsx`
+  - Authoring workflow shell: `apps/author-ui/src/App.jsx`
+  - Local server boundary adapter: `apps/author-ui/server/index.cjs`
+- Author UI integration rule:
+  - Author UI communicates with engine through `AuthoringFacade` (imported from `engine/index.js`) for validate/simulate/session behaviors.
+  - Author UI must not import internal runtime modules (`engine/core/*`, `engine/systems/*`, `engine/plugins/*`, `engine/ui/*`, `engine/validation/*`) directly.
+- Boundary tests:
+  - `test/author-ui-boundaries.test.js` enforces facade-only communication and no direct state mutation in Author UI sources.
+  - `test/authoring-facade.test.js` validates deterministic facade behavior and diagnostics flow.
