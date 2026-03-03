@@ -79,6 +79,28 @@ function hashDeterministicPayload(value, algorithm = AUTHORING_REPORT_DEFAULTS.h
  * @property {{ algorithm: string, value: string }} hash
  */
 
+
+/**
+ * @typedef {Object} RecordingSnapshotDto
+ * @property {number} tick
+ * @property {number} tSec
+ * @property {Record<string, number>} resources
+ * @property {Record<string, number>} netRates
+ */
+
+/**
+ * @typedef {Object} RecordingEventDto
+ * @property {'routine_completion'|'purchase'} kind
+ * @property {number} tick
+ * @property {number} tSec
+ */
+
+/**
+ * @typedef {Object} RecordingDto
+ * @property {RecordingSnapshotDto[]} snapshots
+ * @property {RecordingEventDto[]} events
+ */
+
 /**
  * @typedef {Object} AuthoringSessionDto
  * @property {string} id

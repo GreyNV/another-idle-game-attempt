@@ -19,8 +19,8 @@ app.post('/api/validate', (req, res) => {
 });
 
 app.post('/api/simulate', (req, res) => {
-  const { definitionJson, scenario } = req.body;
-  const result = facade.simulate(definitionJson, scenario || {});
+  const { definitionJson, scenario, options } = req.body;
+  const result = facade.simulate(definitionJson, scenario || {}, options || {});
   res.json(result);
 });
 

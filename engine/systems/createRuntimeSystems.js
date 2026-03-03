@@ -36,7 +36,12 @@ function createRuntimeSystems(options = {}) {
     });
   /** @type {StateStoreContract} */
   const stateStore = options.stateStore || new StateStore(definition.state || {});
-  const timeSystem = options.timeSystem || new TimeSystem();
+  const timeSystem =
+    options.timeSystem ||
+    new TimeSystem({
+      tickRate: options.tickRate,
+      now: options.now,
+    });
   /** @type {ModifierResolverContract} */
   const modifierResolver = options.modifierResolver || new ModifierResolver({ definition });
   const multiplierCompiler = options.multiplierCompiler || new MultiplierCompiler({ stateStore });
