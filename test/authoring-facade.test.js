@@ -51,6 +51,41 @@ function run() {
     secondSimulation.simulation.report.hash.value
   );
 
+  const routineDefinition = loadFixture('valid-routine-schema-1.2.0.json');
+  const accurateScenario = {
+    ticks: 50,
+    dt: 100,
+    seed: 7,
+    horizonSec: 5,
+    dtPolicy: 'accurate',
+    intentsByTick: [[{ type: 'ROUTINE_START', payload: { layerId: 'idle', routineId: 'woodcut-routine', poolId: 'workerSlots' } }]],
+    snapshotIntervalSec: 1,
+  };
+  const fastScenario = {
+    ...accurateScenario,
+    dtPolicy: 'fast',
+  };
+
+  const accurateRun = facade.simulate(routineDefinition, accurateScenario);
+  const fastRun = facade.simulate(routineDefinition, fastScenario);
+
+  assert.strictEqual(accurateRun.ok, true);
+  assert.strictEqual(fastRun.ok, true);
+  assert.deepStrictEqual(
+    accurateRun.simulation.finalSnapshot.canonical.resources,
+    fastRun.simulation.finalSnapshot.canonical.resources
+  );
+  assert.deepStrictEqual(
+    accurateRun.simulation.report.resourceKpis,
+    fastRun.simulation.report.resourceKpis
+  );
+
+  const accurateRoutineCompletions = accurateRun.simulation.recording.events.filter((entry) => entry.kind === 'routine_completion');
+  const fastRoutineCompletions = fastRun.simulation.recording.events.filter((entry) => entry.kind === 'routine_completion');
+
+  assert.strictEqual(accurateRoutineCompletions.length, 4);
+  assert.deepStrictEqual(accurateRoutineCompletions, fastRoutineCompletions);
+
   console.log('authoring-facade tests passed');
 }
 
