@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const DIAGNOSTIC_CODES = Object.freeze({
   JSON_PARSE_ERROR: 'AUTHORING_JSON_PARSE',
   VALIDATION_ERROR: 'AUTHORING_VALIDATION',
@@ -5,6 +7,36 @@ const DIAGNOSTIC_CODES = Object.freeze({
   SIMULATION_ERROR: 'AUTHORING_SIMULATION',
   DIFF_INPUT_ERROR: 'AUTHORING_DIFF_INPUT',
 });
+
+const AUTHORING_REPORT_DEFAULTS = Object.freeze({
+  eventTailLimit: 25,
+  defaultSeed: 0,
+  hashAlgorithm: 'sha256',
+});
+
+function stableSerialize(value) {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(',')}]`;
+  }
+
+  const keys = Object.keys(value).sort();
+  const serializedEntries = keys.map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`);
+  return `{${serializedEntries.join(',')}}`;
+}
+
+function hashDeterministicPayload(value, algorithm = AUTHORING_REPORT_DEFAULTS.hashAlgorithm) {
+  const serialized = stableSerialize(value);
+  const hash = crypto.createHash(algorithm).update(serialized).digest('hex');
+  return {
+    algorithm,
+    serialized,
+    hash,
+  };
+}
 
 /**
  * @typedef {Object} AuthoringDiagnostic
@@ -21,6 +53,33 @@ const DIAGNOSTIC_CODES = Object.freeze({
  */
 
 /**
+ * @typedef {Object} UnlockTransitionDto
+ * @property {string} targetRef
+ * @property {number} tick
+ */
+
+/**
+ * @typedef {Object} ResourceKpiDto
+ * @property {number} start
+ * @property {number} end
+ * @property {number} min
+ * @property {number} max
+ */
+
+/**
+ * @typedef {Object} AuthoringSimulationReportDto
+ * @property {number} tickCount
+ * @property {number} dt
+ * @property {number} seed
+ * @property {Record<string, number>} intentsRouted
+ * @property {{ countsByType: Record<string, number>, tail: Array<{ tick: number, type: string, payload: Record<string, unknown> }> }} eventsDispatched
+ * @property {UnlockTransitionDto[]} unlockTransitions
+ * @property {Record<string, ResourceKpiDto>} resourceKpis
+ * @property {Array<{ code: string, tick: number, message: string }>} warnings
+ * @property {{ algorithm: string, value: string }} hash
+ */
+
+/**
  * @typedef {Object} AuthoringSessionDto
  * @property {string} id
  * @property {number} createdAt
@@ -28,5 +87,8 @@ const DIAGNOSTIC_CODES = Object.freeze({
  */
 
 module.exports = {
+  AUTHORING_REPORT_DEFAULTS,
   DIAGNOSTIC_CODES,
+  hashDeterministicPayload,
+  stableSerialize,
 };
