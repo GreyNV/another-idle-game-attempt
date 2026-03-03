@@ -1,181 +1,196 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  applyAdvancedJson,
+  createEntity,
+  createInitialEditorState,
+  deleteEntity,
+  duplicateEntity,
+  modelToJsonText,
+  renameEntityId,
+  reorderEntity,
+  setActiveTab,
+  updateEntityField,
+  updateSelection,
+} from './editor/state.js';
+import { ENTITY_METADATA, SECTION_LABELS, SECTION_ORDER } from './editor/metadata.js';
 
-const DEFAULT_DEFINITION = `{
-  "schemaVersion": "1.2.0",
-  "meta": {
-    "id": "demo.game",
-    "name": "Demo Game"
-  },
-  "state": {
-    "resources": {
-      "gold": 0
-    }
-  },
-  "systems": [],
-  "layers": []
-}`;
-
-function downloadJson(filename, value) {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(href);
+function renderTree(editorState, onSelect) {
+  return (
+    <div className="tree-panel panel">
+      <h2>Progress Layer</h2>
+      <button onClick={() => onSelect({ nodeType: 'root', section: null, id: null })}>Progress Layer root</button>
+      <ul>
+        {SECTION_ORDER.map((section) => (
+          <li key={section}>
+            <button onClick={() => onSelect({ nodeType: 'section', section, id: null })}>{SECTION_LABELS[section]}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
-async function postJson(url, body) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+function getSelectedEntity(state) {
+  if (state.selection.nodeType !== 'entity') {
+    return null;
+  }
+  const { section, id } = state.selection;
+  return state.model.progress[section]?.byId[id] || null;
+}
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+function castValue(type, value) {
+  if (type === 'number') {
+    const num = Number(value);
+    return Number.isNaN(num) ? 0 : num;
+  }
+  return value;
+}
+
+function PropertiesPanel({ editorState, dispatch }) {
+  const { selection } = editorState;
+  const selectedEntity = getSelectedEntity(editorState);
+
+  if (selection.nodeType === 'root') {
+    return <p>Select a section or entity from the tree to begin authoring.</p>;
   }
 
-  return response.json();
+  if (selection.nodeType === 'section') {
+    return (
+      <div>
+        <h3>{SECTION_LABELS[selection.section]}</h3>
+        <p>Manage {SECTION_LABELS[selection.section].toLowerCase()} entries from this section.</p>
+        <button onClick={() => dispatch((state) => createEntity(state, selection.section))}>Create {ENTITY_METADATA[selection.section].label}</button>
+      </div>
+    );
+  }
+
+  if (!selectedEntity) {
+    return <p>Selection is stale. Choose another node.</p>;
+  }
+
+  const metadata = ENTITY_METADATA[selection.section];
+  const sectionState = editorState.model.progress[selection.section];
+
+  return (
+    <div>
+      <h3>{metadata.label}: {selectedEntity.id}</h3>
+      <div className="actions">
+        <button onClick={() => dispatch((state) => createEntity(state, selection.section))}>Create</button>
+        <button onClick={() => dispatch((state) => duplicateEntity(state, selection.section, selection.id))}>Duplicate</button>
+        <button onClick={() => dispatch((state) => deleteEntity(state, selection.section, selection.id))}>Delete</button>
+        <button onClick={() => dispatch((state) => reorderEntity(state, selection.section, selection.id, 'up'))}>Move Up</button>
+        <button onClick={() => dispatch((state) => reorderEntity(state, selection.section, selection.id, 'down'))}>Move Down</button>
+      </div>
+      {metadata.fields.map((field) => {
+        const isId = field.type === 'id';
+        const optionsSection = field.type.startsWith('ref:') ? field.type.split(':')[1] : null;
+        const value = selectedEntity[field.key] ?? '';
+        return (
+          <label key={field.key} className="field-row">
+            <span>{field.label}{field.required ? ' *' : ''}</span>
+            {optionsSection ? (
+              <select
+                value={value}
+                onChange={(event) =>
+                  dispatch((state) => updateEntityField(state, selection.section, selection.id, field.key, event.target.value))
+                }
+              >
+                <option value="">(none)</option>
+                {editorState.model.progress[optionsSection].order.map((optionId) => (
+                  <option key={optionId} value={optionId}>{optionId}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type={field.type === 'number' ? 'number' : 'text'}
+                value={value}
+                onChange={(event) => {
+                  if (isId) {
+                    dispatch((state) => renameEntityId(state, selection.section, selection.id, event.target.value));
+                    return;
+                  }
+                  dispatch((state) =>
+                    updateEntityField(
+                      state,
+                      selection.section,
+                      selection.id,
+                      field.key,
+                      castValue(field.type, event.target.value)
+                    )
+                  );
+                }}
+              />
+            )}
+          </label>
+        );
+      })}
+      <p>Section order index: {sectionState.order.indexOf(selection.id) + 1} / {sectionState.order.length}</p>
+    </div>
+  );
 }
 
 export function App() {
-  const [definitionText, setDefinitionText] = useState(DEFAULT_DEFINITION);
-  const [validation, setValidation] = useState({ ok: true, diagnostics: [] });
-  const [validationError, setValidationError] = useState('');
-  const [ticks, setTicks] = useState(30);
-  const [simulation, setSimulation] = useState(null);
-  const [simulateError, setSimulateError] = useState('');
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [editorState, setEditorState] = useState(createInitialEditorState);
+  const [advancedDraft, setAdvancedDraft] = useState('');
+  const [advancedError, setAdvancedError] = useState('');
 
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        const result = await postJson('/api/validate', { definitionJson: definitionText });
-        setValidation(result);
-        setValidationError('');
-      } catch (error) {
-        setValidationError(error instanceof Error ? error.message : String(error));
-      }
-    }, 200);
+  const dispatch = (updater) => setEditorState((prev) => updater(prev));
 
-    return () => clearTimeout(timer);
-  }, [definitionText]);
-
-  const issueRows = useMemo(() => validation.diagnostics || [], [validation]);
-
-  const onLoadJsonFile = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
+  const selectedSectionEntries = useMemo(() => {
+    if (editorState.selection.nodeType !== 'section') {
+      return [];
     }
+    const section = editorState.selection.section;
+    return editorState.model.progress[section].order;
+  }, [editorState]);
 
-    const text = await file.text();
-    setDefinitionText(text);
-  };
-
-  const onSaveDefinition = () => {
-    try {
-      const parsed = JSON.parse(definitionText);
-      downloadJson('game-definition.json', parsed);
-    } catch {
-      window.alert('Cannot export invalid JSON. Fix parser errors first.');
-    }
-  };
-
-  const onSimulate = async () => {
-    setIsSimulating(true);
-    try {
-      const result = await postJson('/api/simulate', {
-        definitionJson: definitionText,
-        scenario: { ticks: Number(ticks) || 1 },
-      });
-      setSimulation(result);
-      setSimulateError('');
-    } catch (error) {
-      setSimulateError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsSimulating(false);
-    }
-  };
+  const advancedText = modelToJsonText(editorState.model);
 
   return (
-    <main className="layout">
-      <header>
-        <h1>Author UI (Desktop Builder)</h1>
-        <p>Load a GameDefinition, validate continuously, and run deterministic simulation reports.</p>
-      </header>
+    <main className="workspace">
+      {renderTree(editorState, (selection) => dispatch((state) => updateSelection(state, selection)))}
 
-      <section className="panel">
-        <h2>GameDefinition JSON</h2>
-        <div className="actions">
-          <label className="button-like">
-            Open JSON
-            <input type="file" accept="application/json" onChange={onLoadJsonFile} hidden />
-          </label>
-          <button onClick={onSaveDefinition}>Save JSON</button>
-        </div>
-        <textarea
-          value={definitionText}
-          onChange={(event) => setDefinitionText(event.target.value)}
-          spellCheck={false}
-          rows={18}
-        />
-      </section>
+      <section className="panel content-panel">
+        <header className="panel-header">
+          <h2>Authoring Workspace</h2>
+          <div className="tabs">
+            <button className={editorState.activeTab === 'properties' ? 'active' : ''} onClick={() => dispatch((s) => setActiveTab(s, 'properties'))}>Tree + Forms</button>
+            <button className={editorState.activeTab === 'advanced' ? 'active' : ''} onClick={() => {
+              setAdvancedDraft(advancedText);
+              dispatch((s) => setActiveTab(s, 'advanced'));
+            }}>Advanced JSON</button>
+          </div>
+        </header>
 
-      <section className="panel">
-        <h2>Live Validation ({validation.ok ? 'ok' : 'issues'})</h2>
-        {validationError ? <p className="error">Validation request failed: {validationError}</p> : null}
-        <table>
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Path</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {issueRows.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No issues.</td>
-              </tr>
-            ) : (
-              issueRows.map((issue, index) => (
-                <tr key={`${issue.code}-${issue.path}-${index}`}>
-                  <td>{issue.code}</td>
-                  <td>{issue.path}</td>
-                  <td>{issue.message}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="panel">
-        <h2>Deterministic Simulation</h2>
-        <div className="actions">
-          <label>
-            Ticks
-            <input
-              type="number"
-              min={1}
-              value={ticks}
-              onChange={(event) => setTicks(event.target.value)}
-            />
-          </label>
-          <button onClick={onSimulate} disabled={isSimulating}>
-            {isSimulating ? 'Running...' : 'Run via AuthoringFacade.simulate'}
-          </button>
-          <button
-            onClick={() => simulation && downloadJson('simulation-report.json', simulation.simulation?.report || simulation)}
-            disabled={!simulation}
-          >
-            Export Report JSON
-          </button>
-        </div>
-        {simulateError ? <p className="error">Simulation request failed: {simulateError}</p> : null}
-        <pre>{simulation ? JSON.stringify(simulation, null, 2) : 'Run a simulation to view report output.'}</pre>
+        {editorState.activeTab === 'properties' ? (
+          <div>
+            {editorState.selection.nodeType === 'section' ? (
+              <ul>
+                {selectedSectionEntries.map((id) => (
+                  <li key={id}>
+                    <button onClick={() => dispatch((state) => updateSelection(state, { nodeType: 'entity', section: editorState.selection.section, id }))}>{id}</button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <PropertiesPanel editorState={editorState} dispatch={dispatch} />
+          </div>
+        ) : (
+          <div>
+            <textarea rows={22} value={advancedDraft} onChange={(event) => setAdvancedDraft(event.target.value)} spellCheck={false} />
+            <div className="actions">
+              <button onClick={() => {
+                try {
+                  setEditorState((state) => applyAdvancedJson(state, advancedDraft));
+                  setAdvancedError('');
+                } catch (error) {
+                  setAdvancedError(error instanceof Error ? error.message : String(error));
+                }
+              }}>Apply JSON</button>
+            </div>
+            {advancedError ? <p className="error">{advancedError}</p> : null}
+          </div>
+        )}
       </section>
     </main>
   );

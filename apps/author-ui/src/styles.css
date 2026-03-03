@@ -9,11 +9,12 @@ body {
   color: #e5ecf5;
 }
 
-.layout {
-  max-width: 1100px;
+.workspace {
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
   display: grid;
+  grid-template-columns: 260px 1fr;
   gap: 1rem;
 }
 
@@ -24,20 +25,45 @@ body {
   background: #232a33;
 }
 
+.tree-panel ul {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.content-panel {
+  min-height: 70vh;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
 textarea,
 input,
-button {
+button,
+select {
   font: inherit;
 }
 
-textarea,
-pre,
-table {
+textarea {
   width: 100%;
-}
-
-textarea,
-pre {
   box-sizing: border-box;
   background: #0f1318;
   color: #dbe7f9;
@@ -46,39 +72,26 @@ pre {
   padding: 0.75rem;
 }
 
-pre {
-  overflow: auto;
-  min-height: 160px;
-}
-
-table {
-  border-collapse: collapse;
-}
-
-th,
-td {
-  border-bottom: 1px solid #3d4754;
-  text-align: left;
-  padding: 0.5rem;
-  vertical-align: top;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin: 0.75rem 0;
   align-items: center;
 }
 
-button,
-.button-like {
+button {
   border: 1px solid #70859d;
   border-radius: 6px;
   background: #304258;
   color: #fff;
   padding: 0.4rem 0.7rem;
   cursor: pointer;
+}
+
+button.active {
+  border-color: #b5d4ff;
+  background: #47658a;
 }
 
 .error {
