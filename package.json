@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node test/schema-sync.test.js && node test/schema-validation.test.js && node test/unlock-utils.test.js && node test/game-engine-phase-loop.test.js && node test/runtime-systems.test.js && node test/save-system.test.js && node test/layer-registry.test.js && node test/engine-vertical-slice.test.js && node test/prototype-path.integration.test.js && node test/routine-system.test.js && node test/architecture-boundaries.test.js && node test/ref-index.test.js && node test/contracts-surface.test.js && node test/doc-consistency.test.js && node test/authoring-facade.test.js && node test/author-ui-boundaries.test.js"
+    "test": "node test/schema-sync.test.js && node test/schema-validation.test.js && node test/unlock-utils.test.js && node test/game-engine-phase-loop.test.js && node test/runtime-systems.test.js && node test/save-system.test.js && node test/layer-registry.test.js && node test/engine-vertical-slice.test.js && node test/prototype-path.integration.test.js && node test/routine-system.test.js && node test/architecture-boundaries.test.js && node test/ref-index.test.js && node test/contracts-surface.test.js && node test/doc-consistency.test.js && node test/authoring-facade.test.js && node test/author-ui-boundaries.test.js && node test/editor-state-transforms.test.js"
   },
   "devDependencies": {
     "ajv": "^8.18.0",
