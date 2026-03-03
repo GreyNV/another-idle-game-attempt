@@ -69,6 +69,10 @@ class SimulationRunner {
     });
     engine.initialize(definition);
 
+    if (typeof scenario.configureEngine === 'function') {
+      scenario.configureEngine(engine);
+    }
+
     const timeline = [];
     const warnings = [];
     const unlockTransitions = [];
