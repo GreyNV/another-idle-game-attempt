@@ -1,6 +1,4 @@
-import { AuthoringFacade, progressAuthoringMetadata } from '../../../../engine/index.js';
-
-void AuthoringFacade;
+import { progressAuthoringMetadata } from '../../../../engine/index.mjs';
 
 export const SECTION_ORDER = Object.freeze(
   progressAuthoringMetadata.palette.groups.flatMap((group) => group.kinds)
