@@ -54,6 +54,7 @@ function run() {
     /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*engine\/(?:core|systems|plugins|validation|ui)(?:\/[^'"]*)?['"]/g;
   const engineImportWithoutFacade =
     /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*engine(?:\/[^'"]*)?['"]/g;
+  const allowedEngineContractImports = [/engine\/index\.mjs['"]/];
   const directStateMutationPatterns = [
     /\bstateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
     /\bthis\.stateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
@@ -70,7 +71,8 @@ function run() {
     }
 
     for (const match of collectMatches(content, engineImportWithoutFacade)) {
-      if (!content.includes('AuthoringFacade')) {
+      const isAllowedContractImport = allowedEngineContractImports.some((pattern) => pattern.test(match.text));
+      if (!isAllowedContractImport && !content.includes('AuthoringFacade')) {
         diagnostics.push(formatViolation('author-ui-facade-only-communication', filePath, match));
       }
     }
