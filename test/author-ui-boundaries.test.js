@@ -54,7 +54,8 @@ function run() {
     /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*engine\/(?:core|systems|plugins|validation|ui)(?:\/[^'"]*)?['"]/g;
   const engineImportWithoutFacade =
     /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*engine(?:\/[^'"]*)?['"]/g;
-  const allowedEngineContractImports = [/engine\/index\.mjs['"]/];
+  const allowedMetadataContractImports = [/engine\/index\.mjs['"]/];
+  const facadeRequiredModules = new Set(['apps/author-ui/server/index.cjs']);
   const directStateMutationPatterns = [
     /\bstateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
     /\bthis\.stateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
@@ -65,15 +66,24 @@ function run() {
 
   for (const filePath of files) {
     const content = fs.readFileSync(filePath, 'utf8');
+    const repoPath = toRepoPath(filePath);
 
     for (const match of collectMatches(content, forbiddenInternalEngineImport)) {
       diagnostics.push(formatViolation('author-ui-forbidden-engine-internal-import', filePath, match));
     }
 
     for (const match of collectMatches(content, engineImportWithoutFacade)) {
-      const isAllowedContractImport = allowedEngineContractImports.some((pattern) => pattern.test(match.text));
-      if (!isAllowedContractImport && !content.includes('AuthoringFacade')) {
-        diagnostics.push(formatViolation('author-ui-facade-only-communication', filePath, match));
+      const isMetadataContractImport = allowedMetadataContractImports.some((pattern) =>
+        pattern.test(match.text)
+      );
+      const requiresFacade = facadeRequiredModules.has(repoPath);
+
+      if (requiresFacade && !content.includes('AuthoringFacade')) {
+        diagnostics.push(formatViolation('author-ui-facade-required-for-server-modules', filePath, match));
+      }
+
+      if (!requiresFacade && !isMetadataContractImport) {
+        diagnostics.push(formatViolation('author-ui-ui-modules-metadata-contracts-only', filePath, match));
       }
     }
 
@@ -88,6 +98,32 @@ function run() {
     diagnostics.length,
     0,
     ['Author UI boundary violations found.', ...diagnostics].join('\n')
+  );
+
+  const metadataModulePath = path.join(
+    REPO_ROOT,
+    'apps',
+    'author-ui',
+    'src',
+    'editor',
+    'metadata.js'
+  );
+  const metadataModuleContent = fs.readFileSync(metadataModulePath, 'utf8');
+  const metadataEngineImports = collectMatches(metadataModuleContent, engineImportWithoutFacade);
+
+  assert.ok(
+    metadataEngineImports.length > 0,
+    'Expected metadata module to import engine metadata contract.'
+  );
+  assert.ok(
+    metadataEngineImports.every((match) =>
+      allowedMetadataContractImports.some((pattern) => pattern.test(match.text))
+    ),
+    'metadata.js should be allowed to use metadata contract imports without AuthoringFacade.'
+  );
+  assert.ok(
+    !metadataModuleContent.includes('AuthoringFacade'),
+    'metadata.js must not depend on AuthoringFacade.'
   );
 
   console.log('author-ui-boundaries tests passed');
