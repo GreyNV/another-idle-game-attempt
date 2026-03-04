@@ -1,6 +1,4 @@
-import engineContracts from '../../../../engine/index.js';
-
-const { AuthoringFacade, progressAuthoringMetadata } = engineContracts;
+import { AuthoringFacade, progressAuthoringMetadata } from '../../../../engine/index.js';
 
 void AuthoringFacade;
 
