@@ -1,0 +1,72 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Builder Palette" [level=2] [ref=e5]
+    - button "Root" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - heading "Structure" [level=3] [ref=e8]
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - button "Layers" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - heading "Production" [level=3] [ref=e13]
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - button "Resources" [ref=e16] [cursor=pointer]
+        - listitem [ref=e17]:
+          - button "Routines" [ref=e18] [cursor=pointer]
+    - generic [ref=e19]:
+      - heading "Economy" [level=3] [ref=e20]
+      - list [ref=e21]:
+        - listitem [ref=e22]:
+          - button "Buyables" [ref=e23] [cursor=pointer]
+        - listitem [ref=e24]:
+          - button "Upgrades" [ref=e25] [cursor=pointer]
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - heading "Authoring Workspace" [level=2] [ref=e28]
+      - generic [ref=e29]:
+        - button "Tree + Forms" [ref=e30] [cursor=pointer]
+        - button "Advanced JSON" [ref=e31] [cursor=pointer]
+        - button "Preview" [ref=e32] [cursor=pointer]
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - button "Pause" [active] [ref=e70] [cursor=pointer]
+          - button "Step" [ref=e39] [cursor=pointer]
+          - button "Reset" [ref=e40] [cursor=pointer]
+          - generic [ref=e41]:
+            - text: Speed
+            - combobox "Speed" [ref=e42]:
+              - option "0.5x"
+              - option "1x" [selected]
+              - option "2x"
+              - option "4x"
+        - generic [ref=e43]:
+          - generic [ref=e44]: "Session: authoring-session-61"
+          - generic [ref=e45]: "Tick: 0"
+          - generic [ref=e46]: "dt: 100"
+      - paragraph [ref=e72]: Session "authoring-session-61" was not found.
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "Resources" [level=4] [ref=e49]
+          - list [ref=e50]:
+            - listitem [ref=e51]:
+              - strong [ref=e52]: gold
+              - text: "0"
+        - generic [ref=e53]:
+          - heading "Routines" [level=4] [ref=e54]
+          - paragraph [ref=e55]: No routines visible.
+        - generic [ref=e56]:
+          - heading "Buyables" [level=4] [ref=e57]
+          - paragraph [ref=e58]: No buyables visible.
+        - generic [ref=e59]:
+          - heading "Upgrades" [level=4] [ref=e60]
+          - paragraph [ref=e61]: No upgrades visible.
+        - generic [ref=e62]:
+          - heading "Inventory" [level=4] [ref=e63]
+          - paragraph [ref=e64]: No inventory layer in this definition.
+        - generic [ref=e65]:
+          - heading "Telemetry Overlay" [level=4] [ref=e66]
+          - paragraph [ref=e67]: "events: 0"
+          - paragraph [ref=e68]: "handlers: 0"
+          - paragraph [ref=e69]: "modifiers: {}"

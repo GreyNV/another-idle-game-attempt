@@ -1,0 +1,83 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Builder Palette" [level=2] [ref=e5]
+    - button "Root" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - heading "Structure" [level=3] [ref=e8]
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - button "Layers" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - heading "Production" [level=3] [ref=e13]
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - button "Resources" [ref=e16] [cursor=pointer]
+        - listitem [ref=e17]:
+          - button "Routines" [ref=e18] [cursor=pointer]
+    - generic [ref=e19]:
+      - heading "Economy" [level=3] [ref=e20]
+      - list [ref=e21]:
+        - listitem [ref=e22]:
+          - button "Buyables" [ref=e23] [cursor=pointer]
+        - listitem [ref=e24]:
+          - button "Upgrades" [ref=e25] [cursor=pointer]
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - heading "Authoring Workspace" [level=2] [ref=e28]
+      - generic [ref=e29]:
+        - button "Tree + Forms" [ref=e30] [cursor=pointer]
+        - button "Advanced JSON" [ref=e31] [cursor=pointer]
+        - button "Preview" [ref=e32] [cursor=pointer]
+        - button "Simulation" [active] [ref=e33] [cursor=pointer]
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - heading "Simulation Controls" [level=3] [ref=e74]
+        - generic [ref=e75]:
+          - generic [ref=e76]: Preset
+          - combobox "Preset" [ref=e77]:
+            - option "Early" [selected]
+            - option "Mid"
+            - option "Long Run"
+        - paragraph [ref=e78]: Short bootstrap run for immediate unlock checks.
+        - generic [ref=e79]:
+          - generic [ref=e80]: Ticks
+          - spinbutton "Ticks" [ref=e81]: "120"
+        - generic [ref=e82]:
+          - generic [ref=e83]: Horizon (sec)
+          - spinbutton "Horizon (sec)" [ref=e84]: "12"
+        - generic [ref=e85]:
+          - generic [ref=e86]: dt (ms)
+          - spinbutton "dt (ms)" [ref=e87]: "100"
+        - generic [ref=e88]:
+          - generic [ref=e89]: Snapshot interval (sec)
+          - spinbutton "Snapshot interval (sec)" [ref=e90]: "1"
+        - button "Add intent row" [ref=e92] [cursor=pointer]
+        - table [ref=e93]:
+          - rowgroup [ref=e94]:
+            - row "Tick Type Payload JSON Actions" [ref=e95]:
+              - columnheader "Tick" [ref=e96]
+              - columnheader "Type" [ref=e97]
+              - columnheader "Payload JSON" [ref=e98]
+              - columnheader "Actions" [ref=e99]
+          - rowgroup [ref=e100]:
+            - 'row "0 ROUTINE_START { \"layerId\": \"idle\", \"routineId\": \"beg\", \"poolId\": \"workerSlots\" } Remove" [ref=e101]':
+              - cell "0" [ref=e102]:
+                - spinbutton [ref=e103]: "0"
+              - cell "ROUTINE_START" [ref=e104]:
+                - textbox [ref=e105]: ROUTINE_START
+              - 'cell "{ \"layerId\": \"idle\", \"routineId\": \"beg\", \"poolId\": \"workerSlots\" }" [ref=e106]':
+                - textbox [ref=e107]: "{ \"layerId\": \"idle\", \"routineId\": \"beg\", \"poolId\": \"workerSlots\" }"
+              - cell "Remove" [ref=e108]:
+                - button "Remove" [ref=e109] [cursor=pointer]
+        - button "Run Simulation" [ref=e111] [cursor=pointer]
+      - generic [ref=e112]:
+        - heading "Compare Runs" [level=3] [ref=e113]
+        - paragraph [ref=e114]: "Baseline: not set"
+        - paragraph [ref=e115]: "Current: not run yet"
+        - generic [ref=e116]:
+          - button "Set current as baseline" [disabled] [ref=e117] [cursor=pointer]
+          - button "Compare snapshots" [disabled] [ref=e118] [cursor=pointer]
+        - paragraph [ref=e119]: No comparison yet.
+      - generic [ref=e120]:
+        - heading "Simulation Output" [level=3] [ref=e121]
+        - paragraph [ref=e122]: Run a simulation to view recording snapshots, unlock transitions, events, and softcap markers.

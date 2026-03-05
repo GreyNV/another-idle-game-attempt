@@ -1,0 +1,31 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Builder Palette" [level=2] [ref=e5]
+    - button "Root" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - heading "Structure" [level=3] [ref=e8]
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - button "Layers" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - heading "Production" [level=3] [ref=e13]
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - button "Resources" [ref=e16] [cursor=pointer]
+        - listitem [ref=e17]:
+          - button "Routines" [ref=e18] [cursor=pointer]
+    - generic [ref=e19]:
+      - heading "Economy" [level=3] [ref=e20]
+      - list [ref=e21]:
+        - listitem [ref=e22]:
+          - button "Buyables" [ref=e23] [cursor=pointer]
+        - listitem [ref=e24]:
+          - button "Upgrades" [ref=e25] [cursor=pointer]
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - heading "Authoring Workspace" [level=2] [ref=e28]
+      - generic [ref=e29]:
+        - button "Tree + Forms" [ref=e30] [cursor=pointer]
+        - button "Advanced JSON" [ref=e31] [cursor=pointer]
+        - button "Preview" [ref=e32] [cursor=pointer]
+    - paragraph [ref=e34]: Select a section or entity from the tree to begin authoring.
