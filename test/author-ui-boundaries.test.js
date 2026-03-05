@@ -56,6 +56,7 @@ function run() {
     /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*engine(?:\/[^'"]*)?['"]/g;
   const allowedMetadataContractImports = [/engine\/index\.mjs['"]/];
   const facadeRequiredModules = new Set(['apps/author-ui/server/index.cjs']);
+  const builderToLegacyEditorImport = /(?:import\s+[^'"\n]+\s+from\s+|require\()\s*['"][^'"]*\/editor\/[^'"]*['"]/g;
   const directStateMutationPatterns = [
     /\bstateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
     /\bthis\.stateStore\.(?:set|patch|replaceCanonical|setDerived)\s*\(/g,
@@ -84,6 +85,12 @@ function run() {
 
       if (!requiresFacade && !isMetadataContractImport) {
         diagnostics.push(formatViolation('author-ui-ui-modules-metadata-contracts-only', filePath, match));
+      }
+    }
+
+    if (repoPath.startsWith('apps/author-ui/src/builder/')) {
+      for (const match of collectMatches(content, builderToLegacyEditorImport)) {
+        diagnostics.push(formatViolation('author-ui-builder-legacy-editor-coupling', filePath, match));
       }
     }
 

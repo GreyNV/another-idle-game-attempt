@@ -13,6 +13,7 @@ import {
   updateSelection,
 } from './editor/state.js';
 import { ENTITY_METADATA, PALETTE_GROUPS, SECTION_LABELS } from './editor/metadata.js';
+import { BuilderPage } from './builder/BuilderPage.jsx';
 
 function renderTree(editorState, onSelect) {
   return (
@@ -134,7 +135,7 @@ function PropertiesPanel({ editorState, dispatch }) {
   );
 }
 
-export function App() {
+function LegacyAuthoringPage() {
   const [editorState, setEditorState] = useState(createInitialEditorState);
   const [advancedDraft, setAdvancedDraft] = useState('');
   const [advancedError, setAdvancedError] = useState('');
@@ -198,5 +199,19 @@ export function App() {
         )}
       </section>
     </main>
+  );
+}
+
+export function App() {
+  const [mode, setMode] = useState('legacy');
+
+  return (
+    <>
+      <div className="actions app-mode-toggle" style={{ padding: '0 1rem' }}>
+        <button className={mode === 'legacy' ? 'active' : ''} onClick={() => setMode('legacy')}>JSON/Form Mode</button>
+        <button className={mode === 'builder' ? 'active' : ''} onClick={() => setMode('builder')}>Builder Mode</button>
+      </div>
+      {mode === 'legacy' ? <LegacyAuthoringPage /> : <BuilderPage />}
+    </>
   );
 }
