@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "schemaVersion": "1.2.0",
+    "gameId": "mixed-layers-valid"
+  },
+  "systems": {
+    "tickMs": 100
+  },
+  "state": {
+    "resources": {
+      "xp": 0,
+      "gold": 10
+    },
+    "layers": {
+      "idle": {
+        "routinePools": {
+          "workerSlots": {
+            "total": 1,
+            "used": 0,
+            "activeRoutineId": null
+          }
+        }
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "unlock": { "always": true },
+      "routineSystem": {
+        "slotPools": {
+          "workerSlots": {
+            "totalPath": "layers.idle.routinePools.workerSlots.total",
+            "usedPath": "layers.idle.routinePools.workerSlots.used",
+            "activeRoutineIdPath": "layers.idle.routinePools.workerSlots.activeRoutineId",
+            "singleActivePerPool": true
+          }
+        }
+      },
+      "sublayers": [
+        {
+          "id": "main",
+          "type": "progress",
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": [
+                {
+                  "id": "starter-routine",
+                  "type": "routine",
+                  "mode": "manual",
+                  "slot": { "poolId": "workerSlots", "cost": 1 },
+                  "produces": [{ "path": "resources.xp", "perSecond": 1 }]
+                },
+                {
+                  "id": "starter-buyable",
+                  "type": "buyable"
+                },
+                {
+                  "id": "starter-upgrade",
+                  "type": "upgrade",
+                  "effect": {
+                    "targetRef": "layer:idle/sublayer:main/section:jobs/element:starter-buyable"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "type": "inventoryLayer",
+      "unlock": { "always": true },
+      "sublayers": []
+    },
+    {
+      "id": "statistics",
+      "type": "statisticsLayer",
+      "unlock": { "always": true },
+      "sublayers": []
+    }
+  ]
+}

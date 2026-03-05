@@ -65,9 +65,17 @@ function runBuiltinRegistrationCase() {
   const registry = new LayerRegistry();
   registerBuiltinLayers(registry);
 
-  const layer = registry.createLayer({ id: 'idle', type: 'progressLayer' }, {});
-  assert.strictEqual(layer.type, 'progressLayer');
-  assert.strictEqual(layer.id, 'idle');
+  const progressLayer = registry.createLayer({ id: 'idle', type: 'progressLayer' }, {});
+  assert.strictEqual(progressLayer.type, 'progressLayer');
+  assert.strictEqual(progressLayer.id, 'idle');
+
+  const inventoryLayer = registry.createLayer({ id: 'inventory', type: 'inventoryLayer' }, {});
+  assert.strictEqual(inventoryLayer.type, 'inventoryLayer');
+  assert.strictEqual(inventoryLayer.id, 'inventory');
+
+  const statisticsLayer = registry.createLayer({ id: 'stats', type: 'statisticsLayer' }, {});
+  assert.strictEqual(statisticsLayer.type, 'statisticsLayer');
+  assert.strictEqual(statisticsLayer.id, 'stats');
 }
 
 function runLayerEventSubscriptionCase() {
@@ -118,3 +126,4 @@ function run() {
 }
 
 run();
+

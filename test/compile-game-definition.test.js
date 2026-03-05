@@ -28,6 +28,49 @@ function runCompileSuccessCheck() {
   );
 }
 
+
+function runLegacyModifierMigrationCheck() {
+  const definition = loadFixture('valid-definition.json');
+
+  definition.layers[0].sublayers[0].sections[0].elements.push({
+    id: 'legacy-buyable',
+    type: 'buyable',
+    effectTargetResourceId: 'gold',
+    effectAmount: 3,
+  });
+
+  definition.layers[0].sublayers[0].sections[0].elements.push({
+    id: 'legacy-upgrade',
+    type: 'upgrade',
+    multiplier: 2,
+    effect: {
+      targetRef: 'layer:idle/sublayer:routines/section:jobs/element:woodcut',
+    },
+  });
+
+  definition.layers[0].sublayers[0].sections[0].elements.push({
+    id: 'ambiguous-upgrade',
+    type: 'upgrade',
+    multiplier: 3,
+  });
+
+  const result = compileGameDefinition(definition);
+  const buyableModifiers = result.compiledGame.progress.buyables.byId['legacy-buyable'].modifiers;
+  const upgradeModifiers = result.compiledGame.progress.upgrades.byId['legacy-upgrade'].modifiers;
+
+  assert.strictEqual(buyableModifiers.length, 1);
+  assert.strictEqual(buyableModifiers[0].op, 'add');
+  assert.strictEqual(buyableModifiers[0].key, 'gain.gold');
+
+  assert.strictEqual(upgradeModifiers.length, 1);
+  assert.strictEqual(upgradeModifiers[0].op, 'mul');
+
+  assert.strictEqual(
+    result.errors.some((entry) => entry.code === 'COMPILE_LEGACY_MODIFIER_AMBIGUOUS' && /ambiguous-upgrade/.test(entry.message)),
+    true
+  );
+}
+
 function runCompileErrorCheck() {
   const definition = loadFixture('valid-definition.json');
 
@@ -64,5 +107,6 @@ function runCompileErrorCheck() {
 
 runCompileSuccessCheck();
 runCompileErrorCheck();
+runLegacyModifierMigrationCheck();
 
 console.log('compile-game-definition tests passed');

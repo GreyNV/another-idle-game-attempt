@@ -9,6 +9,9 @@ function isObject(value) {
 const { parseNodeRef } = require('../../systems/unlocks/nodeRef');
 const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition');
 
+const KNOWN_MODIFIER_OPS = new Set(['add', 'mul', 'pow', 'set', 'min', 'max']);
+const KNOWN_MODIFIER_KEY_PREFIXES = ['gain.', 'mul.', 'cost.', 'duration.', 'effect.'];
+
 /**
  * @param {Record<string, unknown>} rootState
  * @param {string} dottedPath
@@ -159,6 +162,39 @@ function validateNodeRefExists(ref, path, index, issues) {
   }
 }
 
+
+function isKnownModifierKey(key) {
+  return KNOWN_MODIFIER_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+function validateModifierEntry(modifier, path, index, issues) {
+  if (!isObject(modifier)) {
+    return;
+  }
+
+  if (typeof modifier.op === 'string' && !KNOWN_MODIFIER_OPS.has(modifier.op)) {
+    issues.push({
+      code: 'REF_MODIFIER_OP_UNKNOWN',
+      path: `${path}/op`,
+      message: `Modifier op "${modifier.op}" is not supported.`,
+      hint: 'Use one of add, mul, pow, set, min, max.',
+    });
+  }
+
+  if (typeof modifier.key === 'string' && !isKnownModifierKey(modifier.key)) {
+    issues.push({
+      code: 'REF_MODIFIER_KEY_UNKNOWN',
+      path: `${path}/key`,
+      message: `Modifier key "${modifier.key}" is not recognized by runtime policy.`,
+      hint: 'Use key prefixes gain., mul., cost., duration., or effect..',
+    });
+  }
+
+  if (typeof modifier.targetRef === 'string') {
+    validateNodeRefExists(modifier.targetRef, `${path}/targetRef`, index, issues);
+  }
+}
+
 /**
  * @param {unknown} definition
  * @returns {import('../schema/types').ValidationIssue[]}
@@ -172,6 +208,12 @@ function validateReferences(definition) {
   const layers = definition.layers;
   const rootState = isObject(definition.state) ? definition.state : {};
   const index = buildNodeIndex(layers);
+
+  if (Array.isArray(definition.modifiers)) {
+    definition.modifiers.forEach((modifier, modifierIdx) => {
+      validateModifierEntry(modifier, `/modifiers/${modifierIdx}`, index, issues);
+    });
+  }
 
   const validateRoutinePathArray = (routineId, entries, arrayPath) => {
     if (!Array.isArray(entries)) {
@@ -249,10 +291,34 @@ function validateReferences(definition) {
       }
     }
 
+    if (Array.isArray(layer.modifiers)) {
+      layer.modifiers.forEach((modifier, modifierIdx) => {
+        validateModifierEntry(modifier, `/layers/${layerIdx}/modifiers/${modifierIdx}`, index, issues);
+      });
+    }
+
     if (Array.isArray(layer.softcaps)) {
       layer.softcaps.forEach((softcap, softcapIdx) => {
-        if (isObject(softcap) && typeof softcap.scope === 'string') {
-          validateNodeRefExists(softcap.scope, `/layers/${layerIdx}/softcaps/${softcapIdx}/scope`, index, issues);
+        if (!isObject(softcap)) {
+          return;
+        }
+
+        const targetRef = typeof softcap.targetRef === 'string' ? softcap.targetRef : softcap.scope;
+        const targetPath = typeof softcap.targetRef === 'string'
+          ? `/layers/${layerIdx}/softcaps/${softcapIdx}/targetRef`
+          : `/layers/${layerIdx}/softcaps/${softcapIdx}/scope`;
+        if (typeof targetRef === 'string') {
+          validateNodeRefExists(targetRef, targetPath, index, issues);
+        }
+
+        const targetKey = typeof softcap.targetKey === 'string' ? softcap.targetKey : softcap.key;
+        if (typeof targetKey !== 'string' || !isKnownModifierKey(targetKey)) {
+          issues.push({
+            code: 'REF_SOFTCAP_TARGET_KEY_INVALID',
+            path: `/layers/${layerIdx}/softcaps/${softcapIdx}/targetKey`,
+            message: `Softcap targetKey "${targetKey}" is not recognized by runtime policy.`,
+            hint: 'Use key prefixes gain., mul., cost., duration., or effect..',
+          });
         }
       });
     }
@@ -331,6 +397,17 @@ function validateReferences(definition) {
               index,
               issues
             );
+          }
+
+          if ((element.type === 'buyable' || element.type === 'upgrade') && Array.isArray(element.modifiers)) {
+            element.modifiers.forEach((modifier, modifierIdx) => {
+              validateModifierEntry(
+                modifier,
+                `/layers/${layerIdx}/sublayers/${subIdx}/sections/${sectionIdx}/elements/${elementIdx}/modifiers/${modifierIdx}`,
+                index,
+                issues
+              );
+            });
           }
 
           if (element.type === 'routine') {

@@ -1,7 +1,7 @@
 const { compareSchemaVersions, validateSchemaVersion } = require('./schemaVersionPolicy');
 const { parseUnlockCondition } = require('../../systems/unlocks/unlockCondition');
 
-const LAYER_TYPES = new Set(['progressLayer']);
+const LAYER_TYPES = new Set(['progressLayer', 'inventoryLayer', 'statisticsLayer']);
 const SUBLAYER_TYPES = new Set(['progress', 'buyable', 'upgrade']);
 const ELEMENT_TYPES = new Set(['progressBar', 'buyable', 'upgrade', 'routine']);
 const SOFTCAP_MODES = new Set(['power']);
@@ -438,3 +438,4 @@ function validateGameDefinitionSchema(definition) {
 module.exports = {
   validateGameDefinitionSchema,
 };
+

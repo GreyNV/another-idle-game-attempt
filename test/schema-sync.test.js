@@ -17,12 +17,15 @@ const expectedInvalidByFixture = {
   'invalid-routine-schema-1.0.0.json': { category: 'schema', code: 'ELEMENT_ROUTINE_REQUIRES_SCHEMA_1_2_0' },
   'invalid-target-reference.json': { category: 'reference', code: 'REF_ELEMENT_MISSING' },
   'invalid-unlock-path.json': { category: 'reference', code: 'REF_UNLOCK_PATH_MISSING' },
+  'invalid-modifier-op.json': { category: 'reference', code: 'REF_MODIFIER_OP_UNKNOWN' },
+  'invalid-softcap-target-link.json': { category: 'reference', code: 'REF_ELEMENT_MISSING' },
 };
 
 const validFixtures = [
   'valid-definition.json',
   'valid-routine-schema-1.2.0.json',
   'prototype-path-definition.json',
+  'valid-mixed-layers.json',
 ];
 
 function loadFixture(name) {
@@ -80,3 +83,4 @@ function run() {
 }
 
 run();
+

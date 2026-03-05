@@ -59,11 +59,61 @@ function runModifierCase() {
   const unchanged = applySoftcap(50, { mode: 'power', softcapAt: 100, power: 0.5 });
   const softcapped = resolver.resolve('layer:idle/sublayer:routines/section:jobs/element:woodcut', 'gain.gold', 400);
 
+  const pipelineDefinition = {
+    layers: [
+      {
+        id: 'idle',
+        type: 'progressLayer',
+        softcaps: [
+          {
+            id: 'cap-1',
+            targetRef: 'layer:idle',
+            targetKey: 'gain.gold',
+            threshold: 100,
+            power: 0.5,
+            multiplier: 1,
+            priority: 1,
+            mode: 'power',
+          },
+        ],
+        sublayers: [
+          {
+            id: 'main',
+            type: 'progress',
+            sections: [
+              {
+                id: 'jobs',
+                elements: [
+                  {
+                    id: 'upgrade-a',
+                    type: 'upgrade',
+                    modifiers: [
+                      { id: 'm-add', targetRef: 'layer:idle', key: 'gain.gold', op: 'add', value: 5 },
+                      { id: 'm-mul', targetRef: 'layer:idle', key: 'gain.gold', op: 'mul', value: 3 },
+                      { id: 'm-pow', targetRef: 'layer:idle', key: 'gain.gold', op: 'pow', value: 2 },
+                      { id: 'm-min', targetRef: 'layer:idle', key: 'gain.gold', op: 'min', value: 200 },
+                      { id: 'm-max', targetRef: 'layer:idle', key: 'gain.gold', op: 'max', value: 150 },
+                      { id: 'm-set', targetRef: 'layer:idle', key: 'gain.gold', op: 'set', value: 175 },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const pipelineResolver = new ModifierResolver({ definition: pipelineDefinition });
+  const pipelineValue = pipelineResolver.resolve('layer:idle', 'gain.gold', 10);
+
   assert.deepStrictEqual(SUPPORTED_SOFTCAP_MODES, ['power']);
   assert.throws(() => applySoftcap(120, { mode: 'log', softcapAt: 100 }), /Unsupported softcap mode/);
   assert.strictEqual(unchanged, 50);
   assert.ok(softcapped < 400);
   assert.ok(softcapped > 100);
+  assert.ok(pipelineValue < 175);
+  assert.ok(pipelineValue > 100);
 }
 
 function runLayerResetCase() {

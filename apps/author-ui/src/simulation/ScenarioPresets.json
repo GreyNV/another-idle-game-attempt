@@ -1,0 +1,81 @@
+{
+  "early": {
+    "label": "Early",
+    "description": "Short bootstrap run for immediate unlock checks.",
+    "scenario": {
+      "ticks": 120,
+      "horizonSec": 12,
+      "dt": 100,
+      "snapshotIntervalSec": 1,
+      "intentsByTick": [
+        [
+          {
+            "type": "ROUTINE_START",
+            "payload": {
+              "layerId": "idle",
+              "routineId": "beg",
+              "poolId": "workerSlots"
+            }
+          }
+        ]
+      ]
+    }
+  },
+  "mid": {
+    "label": "Mid",
+    "description": "Progression pass over a few in-game minutes.",
+    "scenario": {
+      "ticks": 1200,
+      "horizonSec": 120,
+      "dt": 100,
+      "snapshotIntervalSec": 5,
+      "intentsByTick": [
+        [
+          {
+            "type": "ROUTINE_START",
+            "payload": {
+              "layerId": "idle",
+              "routineId": "beg",
+              "poolId": "workerSlots"
+            }
+          }
+        ],
+        [],
+        [],
+        [
+          {
+            "type": "BUY_ELEMENT",
+            "payload": {
+              "layerId": "idle",
+              "sublayerId": "progression",
+              "sectionId": "main",
+              "elementId": "better-cup"
+            }
+          }
+        ]
+      ]
+    }
+  },
+  "long-run": {
+    "label": "Long Run",
+    "description": "Long horizon soak for softcap and late unlock behavior.",
+    "scenario": {
+      "ticks": 6000,
+      "horizonSec": 600,
+      "dt": 100,
+      "snapshotIntervalSec": 30,
+      "intentsByTick": [
+        [
+          {
+            "type": "ROUTINE_START",
+            "payload": {
+              "layerId": "idle",
+              "routineId": "beg",
+              "poolId": "workerSlots"
+            }
+          }
+        ]
+      ]
+    }
+  }
+}

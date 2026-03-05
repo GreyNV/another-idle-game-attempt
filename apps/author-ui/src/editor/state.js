@@ -4,6 +4,12 @@ const DEMO_MODEL = {
   schemaVersion: 'progress-authoring/1',
   meta: { id: 'demo.game', name: 'Demo Game' },
   progress: {
+    layers: {
+      byId: {
+        idle: { id: 'idle', title: 'Idle Layer', type: 'progressLayer' },
+      },
+      order: ['idle'],
+    },
     resources: {
       byId: {
         gold: { id: 'gold', name: 'Gold', start: 0 },

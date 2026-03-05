@@ -45,6 +45,15 @@
       "uniqueItemProperties": [
         "id"
       ]
+    },
+    "modifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modifier"
+      },
+      "uniqueItemProperties": [
+        "id"
+      ]
     }
   },
   "$defs": {
@@ -62,7 +71,9 @@
         },
         "type": {
           "enum": [
-            "progressLayer"
+            "progressLayer",
+            "inventoryLayer",
+            "statisticsLayer"
           ]
         },
         "unlock": {
@@ -81,6 +92,15 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/softcap"
+          },
+          "uniqueItemProperties": [
+            "id"
+          ]
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modifier"
           },
           "uniqueItemProperties": [
             "id"
@@ -170,6 +190,15 @@
         },
         "unlock": {
           "$ref": "#/$defs/unlockCondition"
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modifier"
+          },
+          "uniqueItemProperties": [
+            "id"
+          ]
         }
       },
       "additionalProperties": true
@@ -185,12 +214,46 @@
           "type": "string",
           "minLength": 1
         },
+        "targetRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "targetKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "threshold": {
+          "type": "number"
+        },
+        "power": {
+          "type": "number"
+        },
+        "multiplier": {
+          "type": "number"
+        },
+        "priority": {
+          "type": "number"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
         "mode": {
           "type": "string",
           "enum": [
             "power"
           ],
           "$comment": "Schema major 1 softcap mode enum. For future majors, introduce explicit versioned enum branches rather than widening this enum in-place."
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "softcapAt": {
+          "type": "number"
         }
       },
       "additionalProperties": true
@@ -339,6 +402,60 @@
           "additionalProperties": false
         }
       ]
+    },
+    "modifier": {
+      "type": "object",
+      "required": [
+        "id",
+        "targetRef",
+        "key",
+        "op",
+        "value"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "targetRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "number"
+        },
+        "stacking": {
+          "type": "string",
+          "enum": [
+            "stack",
+            "replace"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
     }
   },
   "allOf": [
@@ -419,3 +536,4 @@
     }
   ]
 }
+

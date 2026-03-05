@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "gameId": "idle-valid"
+  },
+  "systems": {
+    "tickMs": 100
+  },
+  "state": {
+    "resources": {
+      "xp": 0,
+      "gold": 0
+    },
+    "flags": {
+      "introSeen": true
+    }
+  },
+  "layers": [
+    {
+      "id": "idle",
+      "type": "progressLayer",
+      "unlock": {
+        "always": true
+      },
+      "reset": {
+        "keep": [
+          "resources.gold"
+        ]
+      },
+      "softcaps": [
+        {
+          "id": "bad-soft",
+          "targetRef": "layer:idle/sublayer:routines/section:jobs/element:missing",
+          "targetKey": "gain.gold",
+          "threshold": 100,
+          "power": 0.5,
+          "multiplier": 1,
+          "mode": "power"
+        }
+      ],
+      "sublayers": [
+        {
+          "id": "routines",
+          "type": "progress",
+          "unlock": {
+            "flag": {
+              "path": "flags.introSeen"
+            }
+          },
+          "sections": [
+            {
+              "id": "jobs",
+              "elements": [
+                {
+                  "id": "woodcut",
+                  "type": "progressBar",
+                  "unlock": {
+                    "resourceGte": {
+                      "path": "resources.xp",
+                      "value": 0
+                    }
+                  }
+                },
+                {
+                  "id": "woodcut-upgrade",
+                  "type": "upgrade",
+                  "unlock": {
+                    "always": true
+                  },
+                  "effect": {
+                    "targetRef": "layer:idle/sublayer:routines/section:jobs/element:woodcut"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

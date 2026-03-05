@@ -63,8 +63,39 @@ function normalizeLayerRoutineDefinitions(layer) {
   return routinesById;
 }
 
+function normalizeModifier(modifier) {
+  if (!isObject(modifier)) {
+    return modifier;
+  }
+
+  return {
+    ...modifier,
+    stacking: typeof modifier.stacking === 'string' ? modifier.stacking : 'stack',
+    conditions: Array.isArray(modifier.conditions) ? modifier.conditions : [],
+    enabled: modifier.enabled !== false,
+  };
+}
+
+function normalizeSoftcap(softcap) {
+  if (!isObject(softcap)) {
+    return softcap;
+  }
+
+  return {
+    ...softcap,
+    targetRef: typeof softcap.targetRef === 'string' ? softcap.targetRef : softcap.scope,
+    targetKey: typeof softcap.targetKey === 'string' ? softcap.targetKey : softcap.key,
+    threshold: Number.isFinite(softcap.threshold) ? softcap.threshold : softcap.softcapAt,
+    power: Number.isFinite(softcap.power) ? softcap.power : 0.5,
+    multiplier: Number.isFinite(softcap.multiplier) ? softcap.multiplier : 1,
+    priority: Number.isFinite(softcap.priority) ? softcap.priority : 0,
+    enabled: softcap.enabled !== false,
+  };
+}
+
 function normalizeDefinitionForRuntime(definition) {
   const layers = Array.isArray(definition.layers) ? definition.layers : [];
+  definition.modifiers = Array.isArray(definition.modifiers) ? definition.modifiers.map(normalizeModifier) : [];
 
   definition.layers = layers.map((layer) => {
     if (!isObject(layer)) {
@@ -73,9 +104,46 @@ function normalizeDefinitionForRuntime(definition) {
 
     const routineSystem = normalizeRoutineSlotPools(layer);
     const routineDefinitionsById = normalizeLayerRoutineDefinitions(layer);
+    const sublayers = Array.isArray(layer.sublayers) ? layer.sublayers : [];
 
     return {
       ...layer,
+      modifiers: Array.isArray(layer.modifiers) ? layer.modifiers.map(normalizeModifier) : [],
+      softcaps: Array.isArray(layer.softcaps) ? layer.softcaps.map(normalizeSoftcap) : [],
+      sublayers: sublayers.map((sublayer) => {
+        if (!isObject(sublayer)) {
+          return sublayer;
+        }
+
+        const sections = Array.isArray(sublayer.sections) ? sublayer.sections : [];
+        return {
+          ...sublayer,
+          sections: sections.map((section) => {
+            if (!isObject(section)) {
+              return section;
+            }
+
+            const elements = Array.isArray(section.elements) ? section.elements : [];
+            return {
+              ...section,
+              elements: elements.map((element) => {
+                if (!isObject(element)) {
+                  return element;
+                }
+
+                if (element.type !== 'buyable' && element.type !== 'upgrade') {
+                  return element;
+                }
+
+                return {
+                  ...element,
+                  modifiers: Array.isArray(element.modifiers) ? element.modifiers.map(normalizeModifier) : [],
+                };
+              }),
+            };
+          }),
+        };
+      }),
       routineSystem,
       runtime: {
         ...(isObject(layer.runtime) ? layer.runtime : {}),
@@ -87,19 +155,6 @@ function normalizeDefinitionForRuntime(definition) {
   return definition;
 }
 
-/**
- * Parse and validate a game definition JSON payload.
- * Startup policy: fail-fast on any schema/reference error.
- *
- * Source-of-truth contract: this parser + validator pipeline defines runtime
- * acceptance semantics. The JSON schema mirror at
- * engine/validation/schema/game-definition.schema.json must stay in lockstep
- * with validateGameDefinitionSchema + unlockCondition parsing and is checked
- * by test/schema-sync.test.js across fixtures.
- *
- * @param {string|Record<string, unknown>} rawDefinition
- * @returns {Record<string, unknown>}
- */
 function parseGameDefinition(rawDefinition) {
   const parsed = typeof rawDefinition === 'string' ? JSON.parse(rawDefinition) : rawDefinition;
 

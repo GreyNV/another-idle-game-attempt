@@ -44,6 +44,15 @@ function createParityDefinition() {
       {
         id: 'idle',
         type: 'progressLayer',
+        modifiers: [
+          {
+            id: 'parity-noop-modifier',
+            targetRef: 'layer:idle',
+            key: 'gain.xp',
+            op: 'mul',
+            value: 1,
+          },
+        ],
         routineSystem: {
           slotPools: {
             workerSlots: {

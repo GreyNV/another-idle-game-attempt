@@ -454,6 +454,8 @@ function run() {
   expectInvalid('invalid-unlock-path.json', 'REF_UNLOCK_PATH_MISSING', '/unlock/path');
   expectInvalid('invalid-systems-array.json', 'SYSTEMS_SHAPE_MIGRATED', '/systems');
   expectInvalid('invalid-softcap-mode.json', 'SOFTCAP_MODE_ENUM', '/softcaps/0/mode');
+  expectInvalid('invalid-modifier-op.json', 'REF_MODIFIER_OP_UNKNOWN', '/modifiers/0/op');
+  expectInvalid('invalid-softcap-target-link.json', 'REF_ELEMENT_MISSING', '/softcaps/0/targetRef');
   runSoftcapModeAlignmentCheck();
   runSchemaVersionComparisonChecks();
   runRoutineSchemaGateChecks();

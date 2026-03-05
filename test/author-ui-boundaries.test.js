@@ -126,6 +126,18 @@ function run() {
     'metadata.js must not depend on AuthoringFacade.'
   );
 
+  const serverModulePath = path.join(REPO_ROOT, 'apps', 'author-ui', 'server', 'index.cjs');
+  const serverModuleContent = fs.readFileSync(serverModulePath, 'utf8');
+  const serverEngineImports = collectMatches(serverModuleContent, engineImportWithoutFacade);
+
+  assert.ok(
+    serverEngineImports.length === 1,
+    'author-ui server should import exactly one engine entrypoint dependency.'
+  );
+  assert.ok(
+    /require\(\s*['"][^'"]*engine['"]/.test(serverEngineImports[0].text),
+    'author-ui server must import the top-level engine facade entrypoint only.'
+  );
   console.log('author-ui-boundaries tests passed');
 }
 

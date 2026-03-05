@@ -64,6 +64,34 @@ function parseInputDefinition(definitionJson) {
   return { ok: true, value: definitionJson };
 }
 
+function normalizeStepTicks(value) {
+  if (value === undefined || value === null) {
+    return 1;
+  }
+
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function normalizeStepDt(value, fallback) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function normalizeStepIntents(value) {
+  if (value === undefined || value === null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry));
+}
+
 function pointerToken(token) {
   return String(token).replace(/~/g, '~0').replace(/\//g, '~1');
 }
@@ -119,14 +147,38 @@ class AuthoringFacade {
       return validation;
     }
 
+    const parsed = parseInputDefinition(definitionJson);
+    if (!parsed.ok) {
+      return parsed;
+    }
+
     const sessionId = `authoring-session-${this.sessionCounter + 1}`;
     const createdAt = Date.now();
+    const definition = toJsonSafe(parsed.value);
+    const defaultDt = normalizeStepDt(options.defaultDt, 1000 / 60) || 1000 / 60;
 
     try {
-      const engine = new GameEngine(options.engineOptions || {});
-      engine.initialize(definitionJson);
+      const runtimeStepClock = { dt: defaultDt };
+      const engineOptions = {
+        ...(options.engineOptions || {}),
+        timeSystem: {
+          getDeltaTime: () => runtimeStepClock.dt,
+        },
+      };
+
+      const engine = new GameEngine(engineOptions);
+      engine.initialize(definition);
+
       this.sessionCounter += 1;
-      this.sessions.set(sessionId, engine);
+      this.sessions.set(sessionId, {
+        id: sessionId,
+        createdAt,
+        definition,
+        engine,
+        runtimeStepClock,
+        tick: 0,
+        lastSummary: null,
+      });
 
       return {
         ok: true,
@@ -135,7 +187,9 @@ class AuthoringFacade {
           id: sessionId,
           createdAt,
           definitionMeta: toJsonSafe((engine.definition && engine.definition.meta) || {}),
+          tick: 0,
         },
+        snapshot: toJsonSafe(engine.stateStore.snapshot()),
       };
     } catch (error) {
       const diagnostics =
@@ -155,6 +209,132 @@ class AuthoringFacade {
         diagnostics,
       };
     }
+  }
+
+  stepSession(sessionId, stepInput = {}) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return {
+        ok: false,
+        diagnostics: [
+          {
+            code: DIAGNOSTIC_CODES.SESSION_NOT_FOUND,
+            path: '/sessionId',
+            message: `Session "${sessionId}" was not found.`,
+            hint: 'Create a preview session before stepping it.',
+          },
+        ],
+      };
+    }
+
+    const ticks = normalizeStepTicks(stepInput.ticks);
+    const dt = normalizeStepDt(stepInput.dt, session.runtimeStepClock.dt);
+    const intents = normalizeStepIntents(stepInput.intents);
+
+    if (ticks === null || dt === null || intents === null) {
+      return {
+        ok: false,
+        diagnostics: [
+          {
+            code: DIAGNOSTIC_CODES.SESSION_STEP_INPUT_INVALID,
+            path: '/step',
+            message: 'stepSession requires ticks>0, dt>=0, and intents as an array when provided.',
+            hint: 'Use { ticks: 1, dt: 16.67, intents: [] } shape for preview stepping.',
+          },
+        ],
+      };
+    }
+
+    session.runtimeStepClock.dt = dt;
+
+    let latestSummary = null;
+    for (let tickIndex = 0; tickIndex < ticks; tickIndex += 1) {
+      if (tickIndex === 0) {
+        for (const intent of intents) {
+          session.engine.enqueueIntent(intent);
+        }
+      }
+
+      latestSummary = toJsonSafe(session.engine.tick());
+      session.tick += 1;
+    }
+
+    session.lastSummary = latestSummary;
+
+    return {
+      ok: true,
+      diagnostics: [],
+      session: {
+        id: session.id,
+        createdAt: session.createdAt,
+        tick: session.tick,
+      },
+      telemetry: {
+        dt,
+        ticksExecuted: ticks,
+        intentsApplied: intents.length,
+      },
+      summary: latestSummary,
+      snapshot: toJsonSafe(session.engine.stateStore.snapshot()),
+    };
+  }
+
+  snapshotSession(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return {
+        ok: false,
+        diagnostics: [
+          {
+            code: DIAGNOSTIC_CODES.SESSION_NOT_FOUND,
+            path: '/sessionId',
+            message: `Session "${sessionId}" was not found.`,
+            hint: 'Create a preview session before requesting snapshots.',
+          },
+        ],
+      };
+    }
+
+    return {
+      ok: true,
+      diagnostics: [],
+      session: {
+        id: session.id,
+        createdAt: session.createdAt,
+        tick: session.tick,
+      },
+      summary: toJsonSafe(session.lastSummary),
+      snapshot: toJsonSafe(session.engine.stateStore.snapshot()),
+    };
+  }
+
+  disposeSession(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return {
+        ok: false,
+        diagnostics: [
+          {
+            code: DIAGNOSTIC_CODES.SESSION_NOT_FOUND,
+            path: '/sessionId',
+            message: `Session "${sessionId}" was not found.`,
+            hint: 'Create a preview session before disposing it.',
+          },
+        ],
+      };
+    }
+
+    session.engine.destroy();
+    this.sessions.delete(sessionId);
+
+    return {
+      ok: true,
+      diagnostics: [],
+      session: {
+        id: sessionId,
+        disposed: true,
+      },
+    };
   }
 
   simulate(definitionJson, scenario = {}, options = {}) {

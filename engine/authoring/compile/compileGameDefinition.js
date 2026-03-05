@@ -113,6 +113,44 @@ function resolveNodeRef(nodeRef, index) {
   return { ok: true, value: formatNodeRef(parsed) };
 }
 
+function convertLegacyElementToModifiers({ element, elementPath, errors }) {
+  const modifiers = Array.isArray(element.modifiers) ? [...element.modifiers] : [];
+
+  if (element.type === 'buyable' && Number.isFinite(element.effectAmount) && typeof element.effectTargetResourceId === 'string' && element.effectTargetResourceId) {
+    modifiers.push({
+      id: `${element.id}-legacy-effectAmount`,
+      targetRef: `layer:idle`,
+      key: `gain.${element.effectTargetResourceId}`,
+      op: 'add',
+      value: element.effectAmount,
+      stacking: 'stack',
+      source: 'legacy.effectAmount',
+    });
+  }
+
+  if (element.type === 'upgrade' && Number.isFinite(element.multiplier)) {
+    if (isObject(element.effect) && typeof element.effect.targetRef === 'string' && element.effect.targetRef) {
+      modifiers.push({
+        id: `${element.id}-legacy-multiplier`,
+        targetRef: element.effect.targetRef,
+        key: 'mul.value',
+        op: 'mul',
+        value: element.multiplier,
+        stacking: 'stack',
+        source: 'legacy.multiplier',
+      });
+    } else if (element.multiplier !== 1) {
+      errors.push({
+        code: 'COMPILE_LEGACY_MODIFIER_AMBIGUOUS',
+        message: `Upgrade "${element.id}" has multiplier but no resolvable effect.targetRef for migration.`,
+        path: `${elementPath}/multiplier`,
+      });
+    }
+  }
+
+  return modifiers;
+}
+
 function compileGameDefinition(definition) {
   const errors = [...validateGameDefinitionSchema(definition), ...validateReferences(definition)].map((issue) => ({
     code: issue.code || 'COMPILE_VALIDATION',
@@ -187,8 +225,11 @@ function compileGameDefinition(definition) {
             firstSeenByType[type].set(element.id, `${elementPath}/id`);
           }
 
+          const migratedModifiers = convertLegacyElementToModifiers({ element, elementPath, errors });
+
           typeBuckets[type][element.id] = {
             ...cloneJson(element),
+            modifiers: cloneJson(migratedModifiers),
             path: elementPath,
             nodeRef: formatNodeRef({
               layer: layer.id,

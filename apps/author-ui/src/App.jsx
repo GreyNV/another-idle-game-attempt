@@ -13,12 +13,14 @@ import {
   updateSelection,
 } from './editor/state.js';
 import { ENTITY_METADATA, PALETTE_GROUPS, SECTION_LABELS } from './editor/metadata.js';
+import { buildGameDefinitionFromEditorModel } from './editor/previewDefinition.js';
+import { PreviewPage } from './preview/PreviewPage.jsx';
 
-function renderTree(editorState, onSelect) {
+function renderTree(_editorState, onSelect) {
   return (
     <div className="tree-panel panel">
-      <h2>Progress Layer</h2>
-      <button onClick={() => onSelect({ nodeType: 'root', section: null, id: null })}>Progress Layer root</button>
+      <h2>Builder Palette</h2>
+      <button onClick={() => onSelect({ nodeType: 'root', section: null, id: null })}>Root</button>
       {PALETTE_GROUPS.map((group) => (
         <div key={group.id}>
           <h3>{group.label}</h3>
@@ -89,6 +91,7 @@ function PropertiesPanel({ editorState, dispatch }) {
       {metadata.fields.map((field) => {
         const isId = field.type === 'id';
         const optionsSection = field.type.startsWith('ref:') ? field.type.split(':')[1] : null;
+        const enumOptions = field.type.startsWith('enum:') ? field.type.split(':')[1].split('|').filter(Boolean) : null;
         const value = selectedEntity[field.key] ?? '';
         return (
           <label key={field.key} className="field-row">
@@ -103,6 +106,17 @@ function PropertiesPanel({ editorState, dispatch }) {
                 <option value="">(none)</option>
                 {editorState.model.progress[optionsSection].order.map((optionId) => (
                   <option key={optionId} value={optionId}>{optionId}</option>
+                ))}
+              </select>
+            ) : enumOptions ? (
+              <select
+                value={value}
+                onChange={(event) =>
+                  dispatch((state) => updateEntityField(state, selection.section, selection.id, field.key, event.target.value))
+                }
+              >
+                {enumOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             ) : (
@@ -150,6 +164,7 @@ export function App() {
   }, [editorState]);
 
   const advancedText = modelToJsonText(editorState.model);
+  const previewDefinition = useMemo(() => buildGameDefinitionFromEditorModel(editorState.model), [editorState.model]);
 
   return (
     <main className="workspace">
@@ -164,6 +179,7 @@ export function App() {
               setAdvancedDraft(advancedText);
               dispatch((s) => setActiveTab(s, 'advanced'));
             }}>Advanced JSON</button>
+            <button className={editorState.activeTab === 'preview' ? 'active' : ''} onClick={() => dispatch((s) => setActiveTab(s, 'preview'))}>Preview</button>
           </div>
         </header>
 
@@ -180,7 +196,7 @@ export function App() {
             ) : null}
             <PropertiesPanel editorState={editorState} dispatch={dispatch} />
           </div>
-        ) : (
+        ) : editorState.activeTab === 'advanced' ? (
           <div>
             <textarea rows={22} value={advancedDraft} onChange={(event) => setAdvancedDraft(event.target.value)} spellCheck={false} />
             <div className="actions">
@@ -195,6 +211,8 @@ export function App() {
             </div>
             {advancedError ? <p className="error">{advancedError}</p> : null}
           </div>
+        ) : (
+          <PreviewPage definition={previewDefinition} />
         )}
       </section>
     </main>
