@@ -77,11 +77,14 @@ export function PreviewPage({ definition }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState('');
   const inFlightRef = useRef(false);
+  const sessionIdRef = useRef(null);
 
   const createSession = useCallback(async () => {
     setError('');
-    if (sessionId) {
-      await apiRequest(`/api/preview/session/${sessionId}`, 'DELETE');
+    setIsPlaying(false);
+
+    if (sessionIdRef.current) {
+      await apiRequest(`/api/preview/session/${sessionIdRef.current}`, 'DELETE');
     }
 
     const result = await apiRequest('/api/preview/session', 'POST', {
@@ -90,6 +93,7 @@ export function PreviewPage({ definition }) {
     });
 
     if (!result.ok) {
+      sessionIdRef.current = null;
       setSessionId(null);
       setSnapshot(null);
       setSummary(null);
@@ -98,11 +102,12 @@ export function PreviewPage({ definition }) {
       return;
     }
 
+    sessionIdRef.current = result.session.id;
     setSessionId(result.session.id);
     setSnapshot(result.snapshot || null);
     setSummary(null);
     setTick(result.session.tick || 0);
-  }, [definition, sessionId]);
+  }, [definition]);
 
   const step = useCallback(async (stepTicks = 1) => {
     if (!sessionId || inFlightRef.current) {
@@ -120,6 +125,7 @@ export function PreviewPage({ definition }) {
       });
 
       if (!result.ok) {
+        setIsPlaying(false);
         setError(result.diagnostics?.[0]?.message || 'Preview step failed.');
         return;
       }
@@ -135,8 +141,8 @@ export function PreviewPage({ definition }) {
   useEffect(() => {
     createSession();
     return () => {
-      if (sessionId) {
-        apiRequest(`/api/preview/session/${sessionId}`, 'DELETE').catch(() => {});
+      if (sessionIdRef.current) {
+        apiRequest(`/api/preview/session/${sessionIdRef.current}`, 'DELETE').catch(() => {});
       }
     };
   }, [createSession]);

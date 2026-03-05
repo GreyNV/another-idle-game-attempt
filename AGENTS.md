@@ -17,3 +17,9 @@ Canonical handoff lives in `docs/agent-character-sheet.md`.
   - **Game UI**: mobile-first, player-facing runtime interface.
   - **Author UI**: desktop/PC executable builder interface, may use a different tech stack.
 - Both UIs must integrate through shared engine contracts (schema, intents/events, read-only composed UI model), not unstable internal imports.
+
+## Verified workflows and commands (repo usage)
+- Root test suite: `npm test` (runs deterministic engine + boundary/documentation tests from root `package.json`).
+- Author UI local dev: `cd apps/author-ui && npm install && npm run dev` (starts Vite client and local API server).
+- Progress vertical slice regeneration: `node scripts/generate-progress-vertical-slice.mjs` (writes `content/examples/progress-vertical-slice.json`).
+- TODO: add a root `npm run generate:progress-vertical-slice` alias if this generation command becomes a frequent workflow.

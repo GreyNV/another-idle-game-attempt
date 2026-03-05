@@ -15,6 +15,7 @@ import {
 import { ENTITY_METADATA, PALETTE_GROUPS, SECTION_LABELS } from './editor/metadata.js';
 import { buildGameDefinitionFromEditorModel } from './editor/previewDefinition.js';
 import { PreviewPage } from './preview/PreviewPage.jsx';
+import { SimulationWorkspace } from './simulation/SimulationWorkspace.jsx';
 
 function renderTree(_editorState, onSelect) {
   return (
@@ -180,6 +181,7 @@ export function App() {
               dispatch((s) => setActiveTab(s, 'advanced'));
             }}>Advanced JSON</button>
             <button className={editorState.activeTab === 'preview' ? 'active' : ''} onClick={() => dispatch((s) => setActiveTab(s, 'preview'))}>Preview</button>
+            <button className={editorState.activeTab === 'simulation' ? 'active' : ''} onClick={() => dispatch((s) => setActiveTab(s, 'simulation'))}>Simulation</button>
           </div>
         </header>
 
@@ -211,8 +213,10 @@ export function App() {
             </div>
             {advancedError ? <p className="error">{advancedError}</p> : null}
           </div>
-        ) : (
+        ) : editorState.activeTab === 'preview' ? (
           <PreviewPage definition={previewDefinition} />
+        ) : (
+          <SimulationWorkspace definitionJson={previewDefinition} />
         )}
       </section>
     </main>
